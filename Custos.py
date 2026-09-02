@@ -698,9 +698,14 @@ def modulo_plano_contas():
             except Exception as e:
                 st.error(f"Erro ao importar: {str(e)}")
     
-    # Editor do Plano de Contas - SEM CÓDIGO
+    # Editor do Plano de Contas
     df_contas = pd.DataFrame(st.session_state.plano_contas)
-    df_contas = df_contas[["nome", "tipo", "natureza", "comportamento"]]
+    # Garante que as colunas existem
+    colunas = ["nome", "tipo", "natureza", "comportamento"]
+    for col in colunas:
+        if col not in df_contas.columns:
+            df_contas[col] = "---"
+    df_contas = df_contas[colunas]
     
     edited_df = st.data_editor(
         df_contas,
