@@ -1,5 +1,5 @@
 """
-Sistema de Apuração de Resultados e Gestão de Custos
+SYSCOST - Sistema de Apuração de Resultados e Gestão de Custos
 Versão Streamlit para fins didáticos
 Baseado no cronograma da disciplina de Gestão de Custos
 """
@@ -17,7 +17,7 @@ import json
 
 # ─── CONFIGURAÇÃO DA PÁGINA ──────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Gestão de Custos",
+    page_title="SysCost - Gestão de Custos",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -283,18 +283,49 @@ def get_initial_state():
         "periodo": "Janeiro/2026",
         "regime": "Lucro Real",
         
-        # Plano de Contas
+        # Plano de Contas - ESTRUTURA CORRIGIDA
+        # Removido "codigo" - agora apenas: nome, tipo, natureza, comportamento
+        # Tipos de gasto: receita, custo_direto, custo_indireto, despesa, investimento, perda
+        # Natureza (para custos): direto, indireto
+        # Comportamento: fixo, variavel, semivariavel, ---
         "plano_contas": [
-            {"id": 1, "nome": "Receita Bruta de Vendas", "tipo": "receita", "natureza": "variavel"},
-            {"id": 2, "nome": "Deduções de Vendas", "tipo": "deducao", "natureza": "variavel"},
-            {"id": 3, "nome": "CPV / CMV", "tipo": "custo", "natureza": "variavel"},
-            {"id": 4, "nome": "Salários e Encargos", "tipo": "despesa", "natureza": "fixo"},
-            {"id": 5, "nome": "Aluguel", "tipo": "despesa", "natureza": "fixo"},
-            {"id": 6, "nome": "Energia Elétrica", "tipo": "despesa", "natureza": "misto"},
-            {"id": 7, "nome": "Marketing e Publicidade", "tipo": "despesa", "natureza": "misto"},
-            {"id": 8, "nome": "Depreciação", "tipo": "despesa", "natureza": "fixo"},
-            {"id": 9, "nome": "Comissões sobre Vendas", "tipo": "despesa", "natureza": "variavel"},
-            {"id": 10, "nome": "Overhead Produção", "tipo": "custoIndireto", "natureza": "fixo"},
+            # === RECEITAS ===
+            {"id": 1, "nome": "Receita Bruta de Vendas", "tipo": "receita", "natureza": "---", "comportamento": "---"},
+            {"id": 2, "nome": "Deduções de Vendas", "tipo": "receita", "natureza": "---", "comportamento": "---"},
+            
+            # === CUSTOS DIRETOS ===
+            {"id": 3, "nome": "Matéria-Prima Consumida", "tipo": "custo_direto", "natureza": "direto", "comportamento": "variavel"},
+            {"id": 4, "nome": "Material de Embalagem", "tipo": "custo_direto", "natureza": "direto", "comportamento": "variavel"},
+            {"id": 5, "nome": "Mão de Obra Direta", "tipo": "custo_direto", "natureza": "direto", "comportamento": "variavel"},
+            
+            # === CUSTOS INDIRETOS ===
+            {"id": 6, "nome": "Mão de Obra Indireta", "tipo": "custo_indireto", "natureza": "indireto", "comportamento": "fixo"},
+            {"id": 7, "nome": "Aluguel da Fábrica", "tipo": "custo_indireto", "natureza": "indireto", "comportamento": "fixo"},
+            {"id": 8, "nome": "Depreciação de Máquinas", "tipo": "custo_indireto", "natureza": "indireto", "comportamento": "fixo"},
+            {"id": 9, "nome": "Manutenção de Equipamentos", "tipo": "custo_indireto", "natureza": "indireto", "comportamento": "semivariavel"},
+            {"id": 10, "nome": "Energia Elétrica - Fábrica (fixa)", "tipo": "custo_indireto", "natureza": "indireto", "comportamento": "fixo"},
+            {"id": 11, "nome": "Energia Elétrica - Fábrica (variável)", "tipo": "custo_indireto", "natureza": "indireto", "comportamento": "variavel"},
+            {"id": 12, "nome": "Materiais de Consumo (fábrica)", "tipo": "custo_indireto", "natureza": "indireto", "comportamento": "variavel"},
+            {"id": 13, "nome": "Seguros da Fábrica", "tipo": "custo_indireto", "natureza": "indireto", "comportamento": "fixo"},
+            
+            # === DESPESAS ADMINISTRATIVAS ===
+            {"id": 14, "nome": "Salários Administrativos", "tipo": "despesa", "natureza": "---", "comportamento": "fixo"},
+            {"id": 15, "nome": "Aluguel Administrativo", "tipo": "despesa", "natureza": "---", "comportamento": "fixo"},
+            {"id": 16, "nome": "Depreciação de Equipamentos Adm.", "tipo": "despesa", "natureza": "---", "comportamento": "fixo"},
+            
+            # === DESPESAS COMERCIAIS ===
+            {"id": 17, "nome": "Comissões sobre Vendas", "tipo": "despesa", "natureza": "---", "comportamento": "variavel"},
+            {"id": 18, "nome": "Propaganda e Publicidade", "tipo": "despesa", "natureza": "---", "comportamento": "semivariavel"},
+            {"id": 19, "nome": "Frete sobre Vendas", "tipo": "despesa", "natureza": "---", "comportamento": "variavel"},
+            
+            # === DESPESAS FINANCEIRAS ===
+            {"id": 20, "nome": "Juros Passivos", "tipo": "despesa", "natureza": "---", "comportamento": "fixo"},
+            {"id": 21, "nome": "Despesas Bancárias", "tipo": "despesa", "natureza": "---", "comportamento": "variavel"},
+            
+            # === INVESTIMENTOS E PERDAS ===
+            {"id": 22, "nome": "Aquisição de Máquinas", "tipo": "investimento", "natureza": "---", "comportamento": "---"},
+            {"id": 23, "nome": "Perdas com Mercadorias", "tipo": "perda", "natureza": "---", "comportamento": "---"},
+            {"id": 24, "nome": "Perdas com Inadimplência", "tipo": "perda", "natureza": "---", "comportamento": "---"},
         ],
         
         # Produtos
@@ -311,15 +342,24 @@ def get_initial_state():
             {"produto_id": 3, "qtd": 200, "preco_unit": 200, "custo_unit": 100, "custo_direto": 80, "impostos": 20},
         ],
         
-        # Despesas
+        # Despesas - ajustado para contas indiretas e despesas
         "despesas": [
-            {"conta_id": 4, "valor": 28000, "rateio": "proporcional"},
-            {"conta_id": 5, "valor": 8000, "rateio": "igual"},
-            {"conta_id": 6, "valor": 3500, "rateio": "proporcional"},
-            {"conta_id": 7, "valor": 4000, "rateio": "proporcional"},
-            {"conta_id": 8, "valor": 5000, "rateio": "igual"},
-            {"conta_id": 9, "valor": 0, "rateio": "proporcional"},
-            {"conta_id": 10, "valor": 12000, "rateio": "proporcional"},
+            {"conta_id": 6, "valor": 25000, "rateio": "proporcional"},  # Mão de Obra Indireta
+            {"conta_id": 7, "valor": 8000, "rateio": "proporcional"},   # Aluguel da Fábrica
+            {"conta_id": 8, "valor": 5000, "rateio": "proporcional"},   # Depreciação de Máquinas
+            {"conta_id": 9, "valor": 3500, "rateio": "proporcional"},   # Manutenção de Equipamentos
+            {"conta_id": 10, "valor": 2000, "rateio": "proporcional"},  # Energia Elétrica - Fábrica (fixa)
+            {"conta_id": 11, "valor": 1500, "rateio": "proporcional"},  # Energia Elétrica - Fábrica (variável)
+            {"conta_id": 12, "valor": 1000, "rateio": "proporcional"},  # Materiais de Consumo (fábrica)
+            {"conta_id": 13, "valor": 3000, "rateio": "proporcional"},  # Seguros da Fábrica
+            {"conta_id": 14, "valor": 18000, "rateio": "---"},          # Salários Administrativos
+            {"conta_id": 15, "valor": 4000, "rateio": "---"},           # Aluguel Administrativo
+            {"conta_id": 16, "valor": 2000, "rateio": "---"},           # Depreciação de Equipamentos Adm.
+            {"conta_id": 17, "valor": 0, "rateio": "---"},              # Comissões sobre Vendas (calculada)
+            {"conta_id": 18, "valor": 4000, "rateio": "---"},           # Propaganda e Publicidade
+            {"conta_id": 19, "valor": 0, "rateio": "---"},              # Frete sobre Vendas (calculado)
+            {"conta_id": 20, "valor": 1500, "rateio": "---"},           # Juros Passivos
+            {"conta_id": 21, "valor": 500, "rateio": "---"},            # Despesas Bancárias
         ],
         
         # Estoque
@@ -342,7 +382,7 @@ def get_initial_state():
         # Comissão
         "comissao_perc": 5,
         
-        # Critérios de rateio - CORRIGIDO: adicionado campo "tipo"
+        # Critérios de rateio
         "criterios_rateio": [
             {"id": "proporcional", "nome": "Proporcional à Receita", "base": "receita", "tipo": "sistema"},
             {"id": "igual", "nome": "Igual entre Produtos", "base": "igual", "tipo": "sistema"},
@@ -391,7 +431,7 @@ def calcular_indicadores(state):
     # Deduções do plano de contas
     deducoes_plano = sum(
         num(d["valor"]) for d in despesas
-        if any(c["id"] == d["conta_id"] and c["tipo"] == "deducao" for c in plano_contas)
+        if any(c["id"] == d["conta_id"] and c["tipo"] == "receita" and "dedução" in c["nome"].lower() for c in plano_contas)
     )
     deducoes = deducoes_perc + deducoes_plano
     
@@ -401,8 +441,20 @@ def calcular_indicadores(state):
     # Receita Líquida
     rl = rb - deducoes - comissoes
     
-    # CPV Direto
+    # CPV Direto (custos diretos)
     cpv_direto = sum(num(v["qtd"]) * num(v["custo_unit"]) for v in vendas)
+    
+    # Custos Indiretos (rateio)
+    custos_indiretos = sum(
+        num(d["valor"]) for d in despesas
+        if any(c["id"] == d["conta_id"] and c["tipo"] == "custo_indireto" for c in plano_contas)
+    )
+    
+    # Despesas (administrativas, comerciais, financeiras)
+    despesas_operacionais = sum(
+        num(d["valor"]) for d in despesas
+        if any(c["id"] == d["conta_id"] and c["tipo"] == "despesa" for c in plano_contas)
+    )
     
     # Custos e despesas variáveis
     custos_var = cpv_direto + comissoes
@@ -411,35 +463,26 @@ def calcular_indicadores(state):
     mc = rl - custos_var
     mc_perc = safe_div(mc, rl) * 100
     
-    # Overhead (custos indiretos)
-    overheads = sum(
+    # Custos Fixos (indiretos + despesas fixas)
+    custos_fixos = custos_indiretos + sum(
         num(d["valor"]) for d in despesas
-        if any(c["id"] == d["conta_id"] and c["tipo"] == "custoIndireto" for c in plano_contas)
+        if any(c["id"] == d["conta_id"] and c["comportamento"] == "fixo" and c["tipo"] == "despesa" for c in plano_contas)
     )
-    
-    # Despesas Fixas
-    desp_fixas = sum(
-        num(d["valor"]) for d in despesas
-        if any(c["id"] == d["conta_id"] and c["natureza"] == "fixo" and c["tipo"] != "deducao" for c in plano_contas)
-    )
-    
-    # Custos e Despesas Fixas Totais
-    cdf = desp_fixas + overheads
     
     # Depreciação (para PE Financeiro)
     depreciacao = sum(
         num(d["valor"]) for d in despesas
         if any(c["id"] == d["conta_id"] and ("depreciação" in c["nome"].lower() or "depreciacao" in c["nome"].lower()) for c in plano_contas)
     )
-    cdf_desembolsavel = cdf - depreciacao
+    custos_fixos_desembolsaveis = custos_fixos - depreciacao
     
-    # Lucro desejado (30% do CDF)
-    lucro_desejado = cdf * 0.3
+    # Lucro desejado (30% dos custos fixos)
+    lucro_desejado = custos_fixos * 0.3
     
     # Pontos de Equilíbrio
-    pec = safe_div(cdf, mc_perc / 100) if mc_perc > 0 else 0  # Contábil
-    pef = safe_div(cdf_desembolsavel, mc_perc / 100) if mc_perc > 0 else 0  # Financeiro
-    pee = safe_div((cdf + lucro_desejado), mc_perc / 100) if mc_perc > 0 else 0  # Econômico
+    pec = safe_div(custos_fixos, mc_perc / 100) if mc_perc > 0 else 0  # Contábil
+    pef = safe_div(custos_fixos_desembolsaveis, mc_perc / 100) if mc_perc > 0 else 0  # Financeiro
+    pee = safe_div((custos_fixos + lucro_desejado), mc_perc / 100) if mc_perc > 0 else 0  # Econômico
     
     # Margem de Segurança
     ms_abs = rl - pec
@@ -448,15 +491,14 @@ def calcular_indicadores(state):
     ms_qtd = qtd_total * (ms_perc / 100)
     
     # Resultado Operacional - Absorção
-    cpv_absorcao = cpv_direto + overheads
+    cpv_absorcao = cpv_direto + custos_indiretos
     lb_absorcao = rl - cpv_absorcao
-    desp_op_absorcao = (sum(num(d["valor"]) for d in despesas if not any(c["id"] == d["conta_id"] and c["tipo"] == "deducao" for c in plano_contas)) + comissoes) - overheads
-    lo_absorcao = lb_absorcao - desp_op_absorcao
+    lo_absorcao = lb_absorcao - despesas_operacionais
     ircsll_abs = lo_absorcao * 0.34 if lo_absorcao > 0 else 0
     ll_absorcao = lo_absorcao - ircsll_abs
     
     # Resultado Operacional - Variável
-    lo_variavel = mc - cdf
+    lo_variavel = mc - custos_fixos
     ircsll_var = lo_variavel * 0.34 if lo_variavel > 0 else 0
     ll_variavel = lo_variavel - ircsll_var
     
@@ -468,14 +510,13 @@ def calcular_indicadores(state):
         "comissoes": comissoes,
         "rl": rl,
         "cpv_direto": cpv_direto,
+        "custos_indiretos": custos_indiretos,
         "custos_var": custos_var,
         "mc": mc,
         "mc_perc": mc_perc,
-        "overheads": overheads,
-        "desp_fixas": desp_fixas,
-        "cdf": cdf,
+        "custos_fixos": custos_fixos,
         "depreciacao": depreciacao,
-        "cdf_desembolsavel": cdf_desembolsavel,
+        "custos_fixos_desembolsaveis": custos_fixos_desembolsaveis,
         "lucro_desejado": lucro_desejado,
         "pec": pec,
         "pef": pef,
@@ -486,7 +527,7 @@ def calcular_indicadores(state):
         "qtd_total": qtd_total,
         "cpv_absorcao": cpv_absorcao,
         "lb_absorcao": lb_absorcao,
-        "desp_op_absorcao": desp_op_absorcao,
+        "despesas_operacionais": despesas_operacionais,
         "lo_absorcao": lo_absorcao,
         "ircsll_abs": ircsll_abs,
         "ll_absorcao": ll_absorcao,
@@ -577,18 +618,6 @@ def render_alert(message, type="info"):
     }
     st.markdown(f'<div class="{type_map.get(type, "alert-info")}">{message}</div>', unsafe_allow_html=True)
 
-def render_card(title, content, accent_color="#58a6ff"):
-    """Renderiza um card estilizado"""
-    st.markdown(f"""
-    <div class="custom-card">
-        <div class="custom-card-title">
-            <span style="width: 3px; height: 14px; background: {accent_color}; border-radius: 2px; display: block;"></span>
-            {title}
-        </div>
-        {content}
-    </div>
-    """, unsafe_allow_html=True)
-
 # ─── MÓDULOS DA APLICAÇÃO ──────────────────────────────────────────────────────
 
 def modulo_plano_contas():
@@ -596,8 +625,11 @@ def modulo_plano_contas():
     st.header("📋 Plano de Contas")
     
     render_alert("""
-    O plano de contas define a estrutura contábil. Classifique cada conta por 
-    <strong>tipo</strong> (receita, custo, despesa…) e <strong>natureza</strong> (fixo, variável, misto).
+    O plano de contas classifica os gastos da empresa. 
+    Para cada conta, identifique:
+    - <strong>Tipo de Gasto</strong>: Receita, Custo Direto, Custo Indireto, Despesa, Investimento ou Perda
+    - <strong>Natureza</strong> (para custos): Direto ou Indireto
+    - <strong>Comportamento</strong>: Fixo, Variável ou Semivariável
     """)
     
     # Importar planilha
@@ -611,14 +643,13 @@ def modulo_plano_contas():
             try:
                 df = pd.read_excel(uploaded_file) if uploaded_file.name.endswith(('.xlsx', '.xls')) else pd.read_csv(uploaded_file)
                 
-                # Mapeia colunas
                 col_nome = next((c for c in df.columns if 'nome' in c.lower() or 'conta' in c.lower()), None)
                 if col_nome is None:
                     st.error("Coluna 'Nome' não encontrada. Verifique o cabeçalho da planilha.")
                 else:
-                    # Mapeia outras colunas
                     col_tipo = next((c for c in df.columns if 'tipo' in c.lower()), None)
                     col_natureza = next((c for c in df.columns if 'natureza' in c.lower()), None)
+                    col_comportamento = next((c for c in df.columns if 'comportamento' in c.lower()), None)
                     
                     novas_contas = []
                     for _, row in df.iterrows():
@@ -628,24 +659,37 @@ def modulo_plano_contas():
                             "id": len(st.session_state.plano_contas) + len(novas_contas) + 1000,
                             "nome": str(row[col_nome]),
                             "tipo": "despesa",
-                            "natureza": "fixo"
+                            "natureza": "---",
+                            "comportamento": "---"
                         }
                         if col_tipo and not pd.isna(row[col_tipo]):
                             tipo = str(row[col_tipo]).lower()
-                            if "receit" in tipo:
+                            if "receita" in tipo:
                                 conta["tipo"] = "receita"
-                            elif "deduc" in tipo:
-                                conta["tipo"] = "deducao"
-                            elif "indiret" in tipo or "overhead" in tipo:
-                                conta["tipo"] = "custoIndireto"
-                            elif "custo" in tipo:
-                                conta["tipo"] = "custo"
+                            elif "custo_direto" in tipo or "direto" in tipo:
+                                conta["tipo"] = "custo_direto"
+                            elif "custo_indireto" in tipo or "indireto" in tipo:
+                                conta["tipo"] = "custo_indireto"
+                            elif "investimento" in tipo:
+                                conta["tipo"] = "investimento"
+                            elif "perda" in tipo:
+                                conta["tipo"] = "perda"
+                            else:
+                                conta["tipo"] = "despesa"
                         if col_natureza and not pd.isna(row[col_natureza]):
                             nat = str(row[col_natureza]).lower()
-                            if "vari" in nat:
-                                conta["natureza"] = "variavel"
-                            elif "mist" in nat:
-                                conta["natureza"] = "misto"
+                            if "direto" in nat:
+                                conta["natureza"] = "direto"
+                            elif "indireto" in nat:
+                                conta["natureza"] = "indireto"
+                        if col_comportamento and not pd.isna(row[col_comportamento]):
+                            comp = str(row[col_comportamento]).lower()
+                            if "fixo" in comp:
+                                conta["comportamento"] = "fixo"
+                            elif "variavel" in comp:
+                                conta["comportamento"] = "variavel"
+                            elif "semivariavel" in comp or "misto" in comp:
+                                conta["comportamento"] = "semivariavel"
                         novas_contas.append(conta)
                     
                     if novas_contas:
@@ -654,22 +698,27 @@ def modulo_plano_contas():
             except Exception as e:
                 st.error(f"Erro ao importar: {str(e)}")
     
-    # Editor do Plano de Contas
+    # Editor do Plano de Contas - SEM CÓDIGO
     df_contas = pd.DataFrame(st.session_state.plano_contas)
-    df_contas = df_contas[["nome", "tipo", "natureza"]]
+    df_contas = df_contas[["nome", "tipo", "natureza", "comportamento"]]
     
     edited_df = st.data_editor(
         df_contas,
         column_config={
             "nome": st.column_config.TextColumn("Nome da Conta", width="large"),
             "tipo": st.column_config.SelectboxColumn(
-                "Tipo",
-                options=["receita", "deducao", "custo", "custoIndireto", "despesa"],
+                "Tipo de Gasto",
+                options=["receita", "custo_direto", "custo_indireto", "despesa", "investimento", "perda"],
                 width="medium"
             ),
             "natureza": st.column_config.SelectboxColumn(
-                "Natureza",
-                options=["fixo", "variavel", "misto"],
+                "Natureza (Custos)",
+                options=["---", "direto", "indireto"],
+                width="medium"
+            ),
+            "comportamento": st.column_config.SelectboxColumn(
+                "Comportamento",
+                options=["---", "fixo", "variavel", "semivariavel"],
                 width="medium"
             ),
         },
@@ -680,28 +729,32 @@ def modulo_plano_contas():
     
     # Atualiza o estado com as edições
     if not edited_df.equals(df_contas):
-        # Reconstrói o plano de contas com os dados editados
         novas_contas = []
         for idx, row in edited_df.iterrows():
-            # Mantém o ID original se possível
             original = st.session_state.plano_contas[idx] if idx < len(st.session_state.plano_contas) else None
             novas_contas.append({
                 "id": original["id"] if original else idx + 1000,
                 "nome": row["nome"],
                 "tipo": row["tipo"],
                 "natureza": row["natureza"],
+                "comportamento": row["comportamento"],
             })
         st.session_state.plano_contas = novas_contas
     
     # Adicionar nova conta
     with st.expander("➕ Adicionar Nova Conta"):
-        col1, col2, col3 = st.columns([4, 2, 1])
+        col1, col2, col3 = st.columns([2, 1, 1])
         with col1:
-            novo_nome = st.text_input("Nome", placeholder="Seguros")
+            novo_nome = st.text_input("Nome da Conta", placeholder="Ex: Seguros da Fábrica")
         with col2:
-            novo_tipo = st.selectbox("Tipo", ["receita", "deducao", "custo", "custoIndireto", "despesa"])
+            novo_tipo = st.selectbox("Tipo de Gasto", 
+                ["receita", "custo_direto", "custo_indireto", "despesa", "investimento", "perda"])
         with col3:
-            nova_natureza = st.selectbox("Natureza", ["fixo", "variavel", "misto"])
+            nova_natureza = st.selectbox("Natureza", ["---", "direto", "indireto"])
+        
+        col4, col5 = st.columns([1, 4])
+        with col4:
+            novo_comportamento = st.selectbox("Comportamento", ["---", "fixo", "variavel", "semivariavel"])
         
         if st.button("Adicionar Conta", use_container_width=True):
             if novo_nome:
@@ -710,18 +763,19 @@ def modulo_plano_contas():
                     "nome": novo_nome,
                     "tipo": novo_tipo,
                     "natureza": nova_natureza,
+                    "comportamento": novo_comportamento,
                 })
                 st.rerun()
             else:
                 st.warning("Preencha pelo menos o nome da conta.")
 
 def modulo_rateio():
-    """Módulo: Critérios de Rateio"""
+    """Módulo: Critérios de Rateio - APENAS PARA CONTAS INDIRETAS"""
     st.header("⚖️ Critérios de Rateio")
     
     render_alert("""
-    Os critérios de rateio distribuem custos e despesas indiretas entre os produtos.
-    O critério escolhido impacta diretamente o lucro unitário no custeio por absorção.
+    O rateio é utilizado para distribuir <strong>custos indiretos</strong> entre os produtos.
+    Apenas contas classificadas como <strong>Custo Indireto</strong> são rateadas.
     """)
     
     # Indicadores gerais
@@ -737,16 +791,14 @@ def modulo_rateio():
     with col4:
         render_kpi("Nº Produtos", len(st.session_state.produtos), color="#bc8cff")
     
-    # Gerenciar critérios - CORRIGIDO
+    # Gerenciar critérios
     with st.expander("⚙️ Gerenciar Critérios de Rateio"):
         st.write("**Critérios disponíveis:**")
         
-        # Mostra os critérios existentes
         for c in st.session_state.criterios_rateio:
             tipo = "Sistema" if c.get("tipo") == "sistema" else "Personalizado"
             cor = "#58a6ff" if c.get("tipo") == "sistema" else "#bc8cff"
             
-            # Verifica se é personalizado para mostrar botão de remover
             if c.get("tipo") == "usuario":
                 col1, col2 = st.columns([3, 1])
                 with col1:
@@ -763,7 +815,6 @@ def modulo_rateio():
         
         st.divider()
         
-        # Botão para criar novo critério
         if st.button("➕ Criar critério próprio"):
             st.session_state.show_criar_criterio = True
         
@@ -791,17 +842,16 @@ def modulo_rateio():
                 st.session_state.show_criar_criterio = False
                 st.rerun()
     
-    # Lista de despesas fixas e indiretas
-    st.subheader("📊 Distribuição de Custos Indiretos e Despesas Fixas")
+    # Lista de CUSTOS INDIRETOS (rateio)
+    st.subheader("📊 Distribuição de Custos Indiretos")
     
     despesas_rateio = [
         d for d in st.session_state.despesas
-        if any(c["id"] == d["conta_id"] and (c["natureza"] == "fixo" or c["tipo"] == "custoIndireto") 
-               for c in st.session_state.plano_contas)
+        if any(c["id"] == d["conta_id"] and c["tipo"] == "custo_indireto" for c in st.session_state.plano_contas)
     ]
     
     if not despesas_rateio:
-        st.info("Nenhuma despesa fixa ou custo indireto cadastrado para rateio.")
+        st.info("Nenhum custo indireto cadastrado para rateio.")
         return
     
     for despesa in despesas_rateio:
@@ -810,12 +860,14 @@ def modulo_rateio():
             continue
         
         with st.expander(f"📌 {conta['nome']} - {fmtR(despesa['valor'])}", expanded=True):
-            # Selecionar critério
-            criterio_atual = next(
-                (c for c in st.session_state.criterios_rateio if c["id"] == despesa["rateio"]),
-                st.session_state.criterios_rateio[0]
-            )
+            # Mostrar classificação
+            col1, col2 = st.columns(2)
+            with col1:
+                render_tag(f"Tipo: {conta['tipo']}", color="#f85149" if conta['tipo'] == 'custo_indireto' else "#58a6ff")
+            with col2:
+                render_tag(f"Comportamento: {conta['comportamento']}", color="#e3b341")
             
+            # Selecionar critério
             col1, col2 = st.columns([3, 1])
             with col1:
                 novo_criterio = st.selectbox(
@@ -870,7 +922,7 @@ def modulo_vendas():
     st.header("🛒 Volume de Vendas")
     
     render_alert("""
-    Informe quantidade, preço unitário, custo unitário (absorção) e percentual de impostos para cada produto.
+    Informe quantidade, preço unitário, custo unitário e percentual de impostos para cada produto.
     As comissões sobre vendas são calculadas automaticamente.
     """)
     
@@ -897,7 +949,6 @@ def modulo_vendas():
             try:
                 df = pd.read_excel(uploaded_file) if uploaded_file.name.endswith(('.xlsx', '.xls')) else pd.read_csv(uploaded_file)
                 
-                # Mapeia colunas
                 col_produto = next((c for c in df.columns if 'produto' in c.lower() or 'nome' in c.lower()), None)
                 if col_produto is None:
                     st.error("Coluna 'Produto' não encontrada.")
@@ -1103,9 +1154,9 @@ def modulo_dre():
             ("(−) Deduções e Impostos s/ Vendas", -indicadores["deducoes"], "#f85149", False),
             ("(−) Comissões s/ Vendas", -indicadores["comissoes"], "#f85149", False),
             ("  Custos Diretos", -indicadores["cpv_direto"], "#e6edf3", False),
-            ("  Overhead Rateado", -indicadores["overheads"], "#e6edf3", False),
+            ("  Custos Indiretos Rateados", -indicadores["custos_indiretos"], "#e6edf3", False),
             ("= Lucro Bruto", indicadores["lb_absorcao"], "#39d353" if indicadores["lb_absorcao"] >= 0 else "#f85149", True),
-            ("(−) Despesas Operacionais", -indicadores["desp_op_absorcao"], "#f85149", False),
+            ("(−) Despesas Operacionais", -indicadores["despesas_operacionais"], "#f85149", False),
             ("= Resultado Operacional (EBIT)", indicadores["lo_absorcao"], "#3fb950" if indicadores["lo_absorcao"] >= 0 else "#f85149", True),
             ("(−) IR/CSLL (34%)", -indicadores["ircsll_abs"], "#f85149", False),
             ("= Lucro Líquido", indicadores["ll_absorcao"], "#3fb950" if indicadores["ll_absorcao"] >= 0 else "#f85149", True),
@@ -1154,7 +1205,7 @@ def modulo_dre():
             ("  CPV Direto", -indicadores["cpv_direto"], "#e6edf3", False),
             ("= Margem de Contribuição (MC)", indicadores["mc"], "#39d353" if indicadores["mc"] >= 0 else "#f85149", True),
             ("  MC %", indicadores["mc_perc"], "#8d96a0", False),
-            ("(−) Custos e Despesas Fixas", -indicadores["cdf"], "#f85149", True),
+            ("(−) Custos Fixos (Indiretos + Desp. Fixas)", -indicadores["custos_fixos"], "#f85149", True),
             ("= Resultado Operacional", indicadores["lo_variavel"], "#3fb950" if indicadores["lo_variavel"] >= 0 else "#f85149", True),
             ("(−) IR/CSLL (34%)", -indicadores["ircsll_var"], "#f85149", False),
             ("= Lucro Líquido", indicadores["ll_variavel"], "#3fb950" if indicadores["ll_variavel"] >= 0 else "#f85149", True),
@@ -1197,9 +1248,9 @@ def modulo_dre():
     
     st.markdown(f"""
     <div style="font-size: 12px; color: #8d96a0; margin-top: 10px;">
-    💡 A diferença entre os métodos equivale ao overhead fixo rateado no custo do produto 
-    (<strong style="color: #e3b341;">{fmtR(indicadores['overheads'])}</strong>). 
-    No Absorção, esse valor vai para o CPV; no Variável, vai direto para as despesas fixas do período.
+    💡 A diferença entre os métodos equivale aos custos indiretos rateados 
+    (<strong style="color: #e3b341;">{fmtR(indicadores['custos_indiretos'])}</strong>). 
+    No Absorção, esse valor vai para o CPV; no Variável, vai direto para os custos fixos do período.
     </div>
     """, unsafe_allow_html=True)
 
@@ -1220,10 +1271,10 @@ def modulo_cvl():
                    sub=f"%MC = {fmtP(indicadores['mc_perc'])}",
                    color="#39d353")
     with col4:
-        render_kpi("Custos e Desp. Fixas", fmtR(indicadores["cdf"]), color="#f85149")
+        render_kpi("Custos Fixos", fmtR(indicadores["custos_fixos"]), color="#f85149")
     
     if indicadores["depreciacao"] > 0:
-        render_alert(f"💡 Identificamos <strong>{fmtR(indicadores['depreciacao'])}</strong> em depreciação nas despesas fixas — esse valor é excluído no cálculo do PE Financeiro.", type="info")
+        render_alert(f"💡 Identificamos <strong>{fmtR(indicadores['depreciacao'])}</strong> em depreciação nos custos fixos — esse valor é excluído no cálculo do PE Financeiro.", type="info")
     
     # Simulação
     with st.expander("🎯 Simulação - 'O que acontece se...'", expanded=True):
@@ -1250,14 +1301,12 @@ def modulo_cvl():
             )
         
         if st.button("Aplicar Simulação"):
-            # Aplica a simulação
             for v in st.session_state.vendas:
                 v["qtd"] = max(0, v["qtd"] * (1 + volume_var / 100))
                 v["preco_unit"] = max(0, v["preco_unit"] * (1 + preco_var / 100))
             st.rerun()
         
         if st.button("Restaurar Dados Originais"):
-            # Restaura para os valores padrão
             estado_inicial = get_initial_state()
             for key in ["vendas"]:
                 st.session_state[key] = estado_inicial[key]
@@ -1273,7 +1322,7 @@ def modulo_cvl():
         <div class="custom-card">
             <div class="custom-card-title"><span style="width:3px;height:14px;background:#58a6ff;border-radius:2px;display:block;"></span>PE Contábil (PEC)</div>
             <div style="font-family:'IBM Plex Mono',monospace;font-size:28px;font-weight:700;color:#58a6ff;">{fmtR(indicadores['pec'])}</div>
-            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8d96a0;margin-top:4px;">CDF ÷ %MC</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8d96a0;margin-top:4px;">Custos Fixos ÷ %MC</div>
             <div style="font-size:12px;color:#8d96a0;margin-top:8px;">Cobre todos os custos. LL = 0</div>
         </div>
         """, unsafe_allow_html=True)
@@ -1283,7 +1332,7 @@ def modulo_cvl():
         <div class="custom-card">
             <div class="custom-card-title"><span style="width:3px;height:14px;background:#39d353;border-radius:2px;display:block;"></span>PE Financeiro (PEF)</div>
             <div style="font-family:'IBM Plex Mono',monospace;font-size:28px;font-weight:700;color:#39d353;">{fmtR(indicadores['pef'])}</div>
-            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8d96a0;margin-top:4px;">(CDF − Depreciação) ÷ %MC</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8d96a0;margin-top:4px;">(Custos Fixos − Depreciação) ÷ %MC</div>
             <div style="font-size:12px;color:#8d96a0;margin-top:8px;">Exclui despesas não-desembolsáveis</div>
         </div>
         """, unsafe_allow_html=True)
@@ -1293,7 +1342,7 @@ def modulo_cvl():
         <div class="custom-card">
             <div class="custom-card-title"><span style="width:3px;height:14px;background:#bc8cff;border-radius:2px;display:block;"></span>PE Econômico (PEE)</div>
             <div style="font-family:'IBM Plex Mono',monospace;font-size:28px;font-weight:700;color:#bc8cff;">{fmtR(indicadores['pee'])}</div>
-            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8d96a0;margin-top:4px;">(CDF + Lucro Mín.) ÷ %MC</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8d96a0;margin-top:4px;">(Custos Fixos + Lucro Mín.) ÷ %MC</div>
             <div style="font-size:12px;color:#8d96a0;margin-top:8px;">Inclui remuneração do capital</div>
         </div>
         """, unsafe_allow_html=True)
@@ -1317,16 +1366,14 @@ def modulo_cvl():
     # Gráfico do PE
     st.subheader("📈 Visualização do Ponto de Equilíbrio")
     
-    # Dados para o gráfico
     volumes = np.linspace(0, max(indicadores["qtd_total"] * 2, 1000), 100)
     receita_sim = [v * (indicadores["rl"] / indicadores["qtd_total"]) for v in volumes] if indicadores["qtd_total"] > 0 else [0] * 100
-    custo_total = [v * (indicadores["cpv_direto"] / indicadores["qtd_total"]) + indicadores["cdf"] for v in volumes] if indicadores["qtd_total"] > 0 else [0] * 100
+    custo_total = [v * (indicadores["cpv_direto"] / indicadores["qtd_total"]) + indicadores["custos_fixos"] for v in volumes] if indicadores["qtd_total"] > 0 else [0] * 100
     
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=volumes, y=receita_sim, name="Receita Total", line=dict(color="#3fb950")))
     fig.add_trace(go.Scatter(x=volumes, y=custo_total, name="Custo Total", line=dict(color="#f85149")))
     
-    # Ponto de Equilíbrio
     pe_qtd = safe_div(indicadores["pec"], indicadores["rl"] / indicadores["qtd_total"]) if indicadores["qtd_total"] > 0 else 0
     fig.add_vline(x=pe_qtd, line_dash="dash", line_color="#58a6ff")
     fig.add_annotation(x=pe_qtd, y=max(receita_sim) * 0.8, text=f"PE: {fmt(pe_qtd, 0)} un", showarrow=True, arrowhead=1)
@@ -1353,7 +1400,6 @@ def modulo_precificacao():
     Garante cobertura de todos os custos + margem desejada.
     """)
     
-    # Mark-up
     dados_markup = []
     for v in st.session_state.vendas:
         produto = next((p for p in st.session_state.produtos if p["id"] == v["produto_id"]), None)
@@ -1376,7 +1422,6 @@ def modulo_precificacao():
             "Mark-up Mult.": f"{fmt(mult, 2)}×",
         })
     
-    # Editor de lucro desejado
     col1, col2 = st.columns([3, 1])
     with col1:
         st.dataframe(pd.DataFrame(dados_markup), use_container_width=True, hide_index=True)
@@ -1401,7 +1446,6 @@ def modulo_precificacao():
     para análise de posicionamento competitivo.
     """)
     
-    # Preço de mercado
     dados_mercado = []
     for v in st.session_state.vendas:
         produto = next((p for p in st.session_state.produtos if p["id"] == v["produto_id"]), None)
@@ -1422,7 +1466,6 @@ def modulo_precificacao():
             "Margem s/ Custo": fmtP(mg_custo),
         })
     
-    # Editor de preço de mercado
     df_mercado = pd.DataFrame(dados_mercado)
     col1, col2 = st.columns([3, 1])
     with col1:
@@ -1441,7 +1484,6 @@ def modulo_precificacao():
                 )
                 st.session_state.preco_mercado[v["produto_id"]] = novo_preco
     
-    # Comparativo
     st.subheader("📊 Comparativo de Preços")
     
     dados_comparativo = []
@@ -1486,7 +1528,6 @@ def modulo_relatorio():
     
     indicadores = calcular_indicadores(st.session_state)
     
-    # KPIs principais
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         render_kpi("Receita Líquida", fmtR(indicadores["rl"]), 
@@ -1538,8 +1579,8 @@ def modulo_relatorio():
         
         dados_custos = [
             {"Categoria": "CPV Direto", "Valor": indicadores["cpv_direto"], "Color": "#e3b341"},
-            {"Categoria": "Overhead", "Valor": indicadores["overheads"], "Color": "#d29922"},
-            {"Categoria": "Despesas Fixas", "Valor": indicadores["desp_fixas"], "Color": "#f85149"},
+            {"Categoria": "Custos Indiretos", "Valor": indicadores["custos_indiretos"], "Color": "#d29922"},
+            {"Categoria": "Despesas Operacionais", "Valor": indicadores["despesas_operacionais"], "Color": "#f85149"},
             {"Categoria": "Comissões", "Valor": indicadores["comissoes"], "Color": "#bc8cff"},
             {"Categoria": "Impostos/Deduções", "Valor": indicadores["deducoes"], "Color": "#6e1c1a"},
         ]
@@ -1553,7 +1594,6 @@ def modulo_relatorio():
         )
         st.plotly_chart(fig, use_container_width=True)
     
-    # Diagnóstico Executivo
     st.subheader("🩺 Diagnóstico Executivo")
     
     diagnosticos = [
@@ -1578,7 +1618,6 @@ def modulo_laudo():
     
     indicadores = calcular_indicadores(st.session_state)
     
-    # Informações da empresa
     col1, col2, col3 = st.columns(3)
     with col1:
         st.session_state.nome_empresa = st.text_input("Nome da Empresa", value=st.session_state.nome_empresa)
@@ -1587,7 +1626,6 @@ def modulo_laudo():
     with col3:
         st.session_state.regime = st.text_input("Regime Tributário", value=st.session_state.regime)
     
-    # Indicadores consolidados
     st.subheader("📊 Indicadores Consolidados")
     
     indicadores_lista = [
@@ -1595,7 +1633,7 @@ def modulo_laudo():
         ("Receita Líquida", fmtR(indicadores["rl"]), "#58a6ff"),
         ("CMV / CPV Total", fmtR(indicadores["cpv_direto"]), "#e3b341"),
         ("Margem de Contribuição", f"{fmtR(indicadores['mc'])} ({fmtP(indicadores['mc_perc'])})", "#39d353"),
-        ("Custos e Desp. Fixas", fmtR(indicadores["cdf"]), "#f85149"),
+        ("Custos Fixos", fmtR(indicadores["custos_fixos"]), "#f85149"),
         ("PE Contábil", fmtR(indicadores["pec"]), "#58a6ff"),
         ("Margem de Segurança", fmtP(indicadores["ms_perc"]), "#3fb950" if indicadores["ms_perc"] >= 0 else "#f85149"),
         ("Lucro Líquido (Absorção)", fmtR(indicadores["ll_absorcao"]), "#3fb950" if indicadores["ll_absorcao"] >= 0 else "#f85149"),
@@ -1607,7 +1645,6 @@ def modulo_laudo():
         with cols[i % 3]:
             render_kpi(label, value, color=color)
     
-    # Conclusões
     st.subheader("✍️ Conclusões e Análise")
     
     col1, col2 = st.columns(2)
@@ -1651,14 +1688,10 @@ def modulo_laudo():
             height=100
         )
     
-    # Gerar Laudo
     if st.button("📄 Gerar Laudo Completo", use_container_width=True):
         render_alert("📄 Laudo gerado com sucesso! Use a função de impressão do navegador (Ctrl+P) para salvar como PDF.", type="success")
         
-        # Cria o HTML do laudo
         laudo_html = criar_laudo_html(st.session_state, indicadores)
-        
-        # Botão para download
         b64 = base64.b64encode(laudo_html.encode()).decode()
         href = f'<a href="data:text/html;base64,{b64}" download="laudo_{st.session_state.nome_empresa.replace(" ", "_")}.html" style="display:inline-block;background:#58a6ff;color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:500;">⬇ Baixar Laudo (HTML)</a>'
         st.markdown(href, unsafe_allow_html=True)
@@ -1700,7 +1733,7 @@ def criar_laudo_html(state, indicadores):
     </head>
     <body>
         <h1>LAUDO DE ANÁLISE ECONÔMICO-FINANCEIRA</h1>
-        <p class="subtitle">Sistema de Apuração de Resultados e Gestão de Custos</p>
+        <p class="subtitle">Sys_Cost — Sistema de Apuração de Resultados e Gestão de Custos</p>
         
         <div class="meta">
             <div class="meta-item"><span class="meta-label">Empresa</span><span class="meta-value">{{ nome_empresa }}</span></div>
@@ -1756,14 +1789,13 @@ def criar_laudo_html(state, indicadores):
         </div>
         
         <div class="footer">
-            <span>SysCost</span>
+            <span>Sys_Cost</span>
             <span>Gerado em {{ data_atual }}</span>
         </div>
     </body>
     </html>
     """
     
-    # Prepara os dados
     produtos_data = []
     for v in state["vendas"]:
         produto = next((p for p in state["produtos"] if p["id"] == v["produto_id"]), None)
@@ -1785,7 +1817,7 @@ def criar_laudo_html(state, indicadores):
         ("Receita Líquida", fmtR(indicadores["rl"])),
         ("CMV / CPV Total", fmtR(indicadores["cpv_direto"])),
         ("Margem de Contribuição", f"{fmtR(indicadores['mc'])} ({fmtP(indicadores['mc_perc'])})"),
-        ("Custos e Desp. Fixas", fmtR(indicadores["cdf"])),
+        ("Custos Fixos", fmtR(indicadores["custos_fixos"])),
         ("PE Contábil", fmtR(indicadores["pec"])),
         ("Margem de Segurança", fmtP(indicadores["ms_perc"])),
         ("Lucro Líquido (Absorção)", fmtR(indicadores["ll_absorcao"])),
@@ -1813,72 +1845,59 @@ def modulo_info():
     
     with tab1:
         st.markdown("""
-        ### Manual de Uso do Sistema
+        ### Manual de Uso do SysCost
         
         **1. Plano de Contas**
-        Configure as contas da empresa com código, nome, tipo (receita, custo, despesa) e natureza (fixo, variável, misto).
-        Você pode cadastrar manualmente ou importar uma planilha.
+        Configure as contas da empresa com:
+        - **Tipo de Gasto**: Receita, Custo Direto, Custo Indireto, Despesa, Investimento, Perda
+        - **Natureza** (para custos): Direto ou Indireto
+        - **Comportamento**: Fixo, Variável ou Semivariável
         
         **2. Critérios de Rateio**
-        Defina como cada custo indireto/fixo será distribuído entre os produtos. 
-        Há critérios prontos (Proporcional à Receita, Igual, etc.) e você pode criar critérios personalizados.
+        Apenas custos indiretos são rateados. Defina como cada custo indireto será distribuído.
         
         **3. Volume de Vendas**
-        Informe quantidade, preço unitário, custo unitário e percentual de impostos para cada produto.
+        Informe quantidade, preço unitário, custo unitário e percentual de impostos.
         
         **4. Apuração do Estoque**
-        Insira estoque inicial, produção/compra e estoque final. O CPV é calculado automaticamente.
+        Insira estoque inicial, produção/compra e estoque final.
         
         **5. DRE**
-        Visualize a Demonstração do Resultado por dois métodos: Absorção (obrigatório) e Variável (gerencial).
+        Visualize a Demonstração do Resultado por Absorção e Variável.
         
         **6. CVL / Ponto de Equilíbrio**
-        Os 3 tipos de PE (Contábil, Financeiro, Econômico) são calculados automaticamente.
-        A Margem de Segurança indica o quanto a receita pode cair antes do prejuízo.
+        Calcule PE Contábil, Financeiro e Econômico.
         
         **7. Precificação**
-        Compare três estratégias: Mark-up, A Mercado e um comparativo entre ambos.
+        Compare Mark-up e Preço de Mercado.
         
         **8. Relatório**
-        Dashboard consolidado com KPIs, composição de custos e diagnóstico executivo.
+        Dashboard consolidado com KPIs e diagnóstico.
         
         **9. Laudo**
-        Gere um relatório executivo completo para impressão.
+        Gere um relatório executivo completo.
         """)
     
     with tab2:
         st.markdown("""
         ### Tutorial: Importar Planilha
         
-        Você pode cadastrar dezenas de contas de uma só vez importando um arquivo **.xlsx** ou **.csv**.
+        A planilha deve ter os cabeçalhos: **Nome**, **Tipo**, **Natureza**, **Comportamento**
         
-        **Passo 1 — Baixe o modelo**
-        Na aba 'Plano de Contas', baixe a planilha-modelo com os cabeçalhos corretos.
+        **Valores aceitos:**
+        - Tipo: receita, custo_direto, custo_indireto, despesa, investimento, perda
+        - Natureza: direto, indireto (apenas para custos)
+        - Comportamento: fixo, variavel, semivariavel
         
-        **Passo 2 — Preencha as colunas**
-        A planilha precisa ter os cabeçalhos: Codigo, Nome, Tipo, Natureza.
-        
-        **Passo 3 — Use os valores aceitos**
-        - Tipo: receita, deducao, custo, custoIndireto, despesa
-        - Natureza: fixo, variavel, misto
-        
-        **Passo 4 — Envie o arquivo**
-        Arraste o arquivo preenchido para a área de upload.
-        
-        **Passo 5 — Confira o resultado**
-        As contas serão adicionadas à lista existente.
+        **Exemplo:**
         """)
         
-        # Exemplo de estrutura
-        st.markdown("#### Exemplo de estrutura da planilha")
         exemplo_df = pd.DataFrame([
-            {"Codigo": "3.7", "Nome": "Seguros", "Tipo": "despesa", "Natureza": "fixo"},
-            {"Codigo": "3.8", "Nome": "Frete sobre Vendas", "Tipo": "despesa", "Natureza": "variavel"},
-            {"Codigo": "4.2", "Nome": "Manutenção de Equipamentos", "Tipo": "custoIndireto", "Natureza": "misto"},
+            {"Nome": "Matéria-Prima", "Tipo": "custo_direto", "Natureza": "direto", "Comportamento": "variavel"},
+            {"Nome": "Aluguel da Fábrica", "Tipo": "custo_indireto", "Natureza": "indireto", "Comportamento": "fixo"},
+            {"Nome": "Salários Administrativos", "Tipo": "despesa", "Natureza": "---", "Comportamento": "fixo"},
         ])
         st.dataframe(exemplo_df, use_container_width=True, hide_index=True)
-        
-        st.warning("⚠️ A importação adiciona contas novas, mas não atualiza valores de despesas/rateio.")
     
     with tab3:
         st.markdown("""
@@ -1886,47 +1905,38 @@ def modulo_info():
         
         **Contabilidade de Custos**
         MARTINS, Eliseu. Contabilidade de Custos. 11. ed. São Paulo: Atlas, 2018.
-        - Base para a estrutura do Plano de Contas e classificação de custos
         
         **Custeio Variável e Absorção**
         HORNGREN, Charles T.; DATAR, Srikant M.; RAJAN, Madhav. Contabilidade de Custos. 14. ed. São Paulo: Pearson, 2016.
-        - Fundamento para as DREs comparativas (absorção e variável)
         
         **Análise CVL**
         GARRISON, Ray H.; NOREEN, Eric W.; BREWER, Peter C. Contabilidade Gerencial. 14. ed. Porto Alegre: AMGH, 2013.
-        - Referência para Margem de Contribuição e Ponto de Equilíbrio
         
         **Mark-up e Formação de Preços**
         ASSEF, Roberto. Guia Prático de Formação de Preços. 3. ed. Rio de Janeiro: Campus, 2005.
-        - Base para a fórmula do mark-up divisor e multiplicador
-        
-        **Normas Contábeis Brasileiras**
-        CPC 16 (R1) — Estoques; NBC TG 16 — Estoques.
-        - Justifica a exigência legal do Custeio por Absorção no Brasil
         """)
     
     with tab4:
         st.markdown("""
-        ### Observações Importantes
+        ### Observações Importantes para o Curso
         
-        **⚠️ Diferença entre métodos de custeio**
-        No Custeio por Absorção, os custos indiretos fixos são rateados ao produto e só aparecem no resultado quando vendidos.
-        No Custeio Variável, esses custos vão integralmente para o resultado do período.
+        **📚 Classificação de Gastos:**
+        - **Custo**: Gastos com produção (diretos e indiretos)
+        - **Despesa**: Gastos administrativos, comerciais e financeiros
+        - **Investimento**: Gastos que geram benefícios futuros
+        - **Perda**: Gastos anormais e involuntários
         
-        **📊 Limitação do custeio variável**
-        O Custeio Variável não é aceito para fins fiscais no Brasil, pois contraria o CPC 16.
+        **📊 Custeio por Absorção vs Variável:**
+        - Absorção: Todos os custos vão para o produto
+        - Variável: Apenas custos variáveis vão para o produto
         
-        **🔢 Ponto de equilíbrio misto**
-        Quando a empresa tem múltiplos produtos, o PE é calculado com base no mix médio de vendas.
+        **📐 Ponto de Equilíbrio:**
+        - Contábil: Cobre todos os custos (LL = 0)
+        - Financeiro: Cobre apenas desembolsos
+        - Econômico: Inclui lucro mínimo
         
-        **📐 PE Financeiro depende da depreciação**
-        O sistema procura automaticamente uma conta com 'depreciação' no nome para excluí-la do PE Financeiro.
-        
-        **💰 Mark-up e riscos**
-        O preço calculado pelo Mark-up garante cobertura de custos, mas pode não ser viável no mercado.
-        
-        **📦 Custo médio x FIFO x UEPS**
-        Este sistema utiliza Custo Médio Ponderado. O UEPS não é aceito pelo fisco no Brasil.
+        **💰 Mark-up:**
+        Preço = Custo ÷ (1 − %Impostos − %Lucro)
         """)
 
 # ─── FUNÇÃO PRINCIPAL ───────────────────────────────────────────────────────────
@@ -1934,7 +1944,6 @@ def modulo_info():
 def main():
     """Função principal da aplicação"""
     
-    # Inicializa o estado da sessão
     if "initialized" not in st.session_state:
         estado_inicial = get_initial_state()
         for key, value in estado_inicial.items():
@@ -1942,12 +1951,11 @@ def main():
         st.session_state.initialized = True
         st.session_state.show_criar_criterio = False
     
-    # Sidebar - Navegação
     with st.sidebar:
         st.markdown("""
         <div style="text-align:center;padding:16px 0;">
             <div style="font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:18px;color:#e6edf3;">
-                <span style="color:#3fb950;">Sys</span><span style="color:#8d96a0;">_</span><span style="color:#58a6ff;">Cost</span>
+                <span style="color:#3fb950;">Sys</span><span style="color:#8d96a0;"></span><span style="color:#58a6ff;">Cost</span>
             </div>
             <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#57606a;letter-spacing:0.08em;">
                 GESTÃO DE CUSTOS
@@ -1977,7 +1985,6 @@ def main():
         
         st.divider()
         
-        # Dados da empresa
         st.markdown("""
         <div style="font-size:12px;color:#8d96a0;padding:8px 0;">
             <div>🏢 <strong style="color:#e6edf3;">{}</strong></div>
@@ -1989,7 +1996,6 @@ def main():
         
         st.divider()
         
-        # Reset
         if st.button("🔄 Restaurar Dados de Exemplo", use_container_width=True):
             estado_inicial = get_initial_state()
             for key, value in estado_inicial.items():
@@ -1997,13 +2003,10 @@ def main():
             st.session_state.initialized = True
             st.rerun()
         
-        # Informações do sistema
-        st.caption("v2.0 - Streamlit | FAGEN/UFU")
+        st.caption("SysCost")
     
-    # Página atual
     page = st.session_state.get("page", "plano")
     
-    # Renderiza o módulo selecionado
     if page == "plano":
         modulo_plano_contas()
     elif page == "rateio":
