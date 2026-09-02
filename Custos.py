@@ -1,5 +1,5 @@
 """
-SIGMA_COST - Sistema de Apuração de Resultados e Gestão de Custos
+Sistema de Apuração de Resultados e Gestão de Custos
 Versão Streamlit para fins didáticos
 Baseado no cronograma da disciplina de Gestão de Custos
 """
@@ -342,14 +342,13 @@ def get_initial_state():
         # Comissão
         "comissao_perc": 5,
         
-        # Critérios de rateio
+        # Critérios de rateio - CORRIGIDO: adicionado campo "tipo"
         "criterios_rateio": [
             {"id": "proporcional", "nome": "Proporcional à Receita", "base": "receita", "tipo": "sistema"},
             {"id": "igual", "nome": "Igual entre Produtos", "base": "igual", "tipo": "sistema"},
             {"id": "custo", "nome": "Proporcional ao Custo", "base": "custo", "tipo": "sistema"},
             {"id": "qtd", "nome": "Proporcional à Quantidade", "base": "qtd", "tipo": "sistema"},
         ],
-        
         
         # Pesos manuais para rateio
         "pesos_rateio": {},
@@ -745,17 +744,35 @@ def modulo_rateio():
     with col4:
         render_kpi("Nº Produtos", len(st.session_state.produtos), color="#bc8cff")
     
-    # Gerenciar critérios
+    # Gerenciar critérios - CORRIGIDO
     with st.expander("⚙️ Gerenciar Critérios de Rateio"):
         st.write("**Critérios disponíveis:**")
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            for c in st.session_state.criterios_rateio:
-                tipo = "Sistema" if c["tipo"] == "sistema" else "Personalizado"
-                render_tag(f"{c['nome']} ({tipo})", color="#58a6ff" if c["tipo"] == "sistema" else "#bc8cff")
-        with col2:
-            if st.button("➕ Criar critério próprio"):
-                st.session_state.show_criar_criterio = True
+        
+        # Mostra os critérios existentes
+        for c in st.session_state.criterios_rateio:
+            tipo = "Sistema" if c.get("tipo") == "sistema" else "Personalizado"
+            cor = "#58a6ff" if c.get("tipo") == "sistema" else "#bc8cff"
+            
+            # Verifica se é personalizado para mostrar botão de remover
+            if c.get("tipo") == "usuario":
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    render_tag(f"{c['nome']} ({tipo})", color=cor)
+                with col2:
+                    if st.button(f"✕ Remover", key=f"remove_{c['id']}"):
+                        st.session_state.criterios_rateio = [
+                            crit for crit in st.session_state.criterios_rateio 
+                            if crit["id"] != c["id"]
+                        ]
+                        st.rerun()
+            else:
+                render_tag(f"{c['nome']} ({tipo})", color=cor)
+        
+        st.divider()
+        
+        # Botão para criar novo critério
+        if st.button("➕ Criar critério próprio"):
+            st.session_state.show_criar_criterio = True
         
         if st.session_state.get("show_criar_criterio", False):
             col1, col2, col3 = st.columns([2, 2, 1])
@@ -776,6 +793,10 @@ def modulo_rateio():
                         st.rerun()
                     else:
                         st.warning("Digite um nome para o critério.")
+            
+            if st.button("Cancelar"):
+                st.session_state.show_criar_criterio = False
+                st.rerun()
     
     # Lista de despesas fixas e indiretas
     st.subheader("📊 Distribuição de Custos Indiretos e Despesas Fixas")
@@ -1686,7 +1707,7 @@ def criar_laudo_html(state, indicadores):
     </head>
     <body>
         <h1>LAUDO DE ANÁLISE ECONÔMICO-FINANCEIRA</h1>
-        <p class="subtitle">SIGMA_COST — Sistema de Apuração de Resultados e Gestão de Custos</p>
+        <p class="subtitle">Sistema de Apuração de Resultados e Gestão de Custos</p>
         
         <div class="meta">
             <div class="meta-item"><span class="meta-label">Empresa</span><span class="meta-value">{{ nome_empresa }}</span></div>
@@ -1742,7 +1763,7 @@ def criar_laudo_html(state, indicadores):
         </div>
         
         <div class="footer">
-            <span>SIGMA_COST</span>
+            <span>SysCost</span>
             <span>Gerado em {{ data_atual }}</span>
         </div>
     </body>
@@ -1799,7 +1820,7 @@ def modulo_info():
     
     with tab1:
         st.markdown("""
-        ### Manual de Uso do SIGMA_COST
+        ### Manual de Uso do Sistema
         
         **1. Plano de Contas**
         Configure as contas da empresa com código, nome, tipo (receita, custo, despesa) e natureza (fixo, variável, misto).
@@ -1933,7 +1954,7 @@ def main():
         st.markdown("""
         <div style="text-align:center;padding:16px 0;">
             <div style="font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:18px;color:#e6edf3;">
-                <span style="color:#3fb950;">SIGMA</span><span style="color:#8d96a0;">_</span><span style="color:#58a6ff;">COST</span>
+                <span style="color:#3fb950;">Sys</span><span style="color:#8d96a0;">_</span><span style="color:#58a6ff;">Cost</span>
             </div>
             <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#57606a;letter-spacing:0.08em;">
                 GESTÃO DE CUSTOS
