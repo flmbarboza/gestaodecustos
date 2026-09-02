@@ -344,11 +344,12 @@ def get_initial_state():
         
         # Critérios de rateio
         "criterios_rateio": [
-            {"id": "proporcional", "nome": "Proporcional à Receita", "base": "receita"},
-            {"id": "igual", "nome": "Igual entre Produtos", "base": "igual"},
-            {"id": "custo", "nome": "Proporcional ao Custo", "base": "custo"},
-            {"id": "qtd", "nome": "Proporcional à Quantidade", "base": "qtd"},
+            {"id": "proporcional", "nome": "Proporcional à Receita", "base": "receita", "tipo": "sistema"},
+            {"id": "igual", "nome": "Igual entre Produtos", "base": "igual", "tipo": "sistema"},
+            {"id": "custo", "nome": "Proporcional ao Custo", "base": "custo", "tipo": "sistema"},
+            {"id": "qtd", "nome": "Proporcional à Quantidade", "base": "qtd", "tipo": "sistema"},
         ],
+        
         
         # Pesos manuais para rateio
         "pesos_rateio": {},
