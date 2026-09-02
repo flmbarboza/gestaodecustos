@@ -285,16 +285,16 @@ def get_initial_state():
         
         # Plano de Contas
         "plano_contas": [
-            {"id": 1, "codigo": "1.1", "nome": "Receita Bruta de Vendas", "tipo": "receita", "natureza": "variavel"},
-            {"id": 2, "codigo": "1.2", "nome": "Deduções de Vendas", "tipo": "deducao", "natureza": "variavel"},
-            {"id": 3, "codigo": "2.1", "nome": "CPV / CMV", "tipo": "custo", "natureza": "variavel"},
-            {"id": 4, "codigo": "3.1", "nome": "Salários e Encargos", "tipo": "despesa", "natureza": "fixo"},
-            {"id": 5, "codigo": "3.2", "nome": "Aluguel", "tipo": "despesa", "natureza": "fixo"},
-            {"id": 6, "codigo": "3.3", "nome": "Energia Elétrica", "tipo": "despesa", "natureza": "misto"},
-            {"id": 7, "codigo": "3.4", "nome": "Marketing e Publicidade", "tipo": "despesa", "natureza": "misto"},
-            {"id": 8, "codigo": "3.5", "nome": "Depreciação", "tipo": "despesa", "natureza": "fixo"},
-            {"id": 9, "codigo": "3.6", "nome": "Comissões sobre Vendas", "tipo": "despesa", "natureza": "variavel"},
-            {"id": 10, "codigo": "4.1", "nome": "Overhead Produção", "tipo": "custoIndireto", "natureza": "fixo"},
+            {"id": 1, "nome": "Receita Bruta de Vendas", "tipo": "receita", "natureza": "variavel"},
+            {"id": 2, "nome": "Deduções de Vendas", "tipo": "deducao", "natureza": "variavel"},
+            {"id": 3, "nome": "CPV / CMV", "tipo": "custo", "natureza": "variavel"},
+            {"id": 4, "nome": "Salários e Encargos", "tipo": "despesa", "natureza": "fixo"},
+            {"id": 5, "nome": "Aluguel", "tipo": "despesa", "natureza": "fixo"},
+            {"id": 6, "nome": "Energia Elétrica", "tipo": "despesa", "natureza": "misto"},
+            {"id": 7, "nome": "Marketing e Publicidade", "tipo": "despesa", "natureza": "misto"},
+            {"id": 8, "nome": "Depreciação", "tipo": "despesa", "natureza": "fixo"},
+            {"id": 9, "nome": "Comissões sobre Vendas", "tipo": "despesa", "natureza": "variavel"},
+            {"id": 10, "nome": "Overhead Produção", "tipo": "custoIndireto", "natureza": "fixo"},
         ],
         
         # Produtos
@@ -617,7 +617,6 @@ def modulo_plano_contas():
                     st.error("Coluna 'Nome' não encontrada. Verifique o cabeçalho da planilha.")
                 else:
                     # Mapeia outras colunas
-                    col_codigo = next((c for c in df.columns if 'codigo' in c.lower() or 'código' in c.lower()), None)
                     col_tipo = next((c for c in df.columns if 'tipo' in c.lower()), None)
                     col_natureza = next((c for c in df.columns if 'natureza' in c.lower()), None)
                     
@@ -628,7 +627,6 @@ def modulo_plano_contas():
                         conta = {
                             "id": len(st.session_state.plano_contas) + len(novas_contas) + 1000,
                             "nome": str(row[col_nome]),
-                            "codigo": str(row[col_codigo]) if col_codigo and not pd.isna(row[col_codigo]) else f"{len(novas_contas)+1}",
                             "tipo": "despesa",
                             "natureza": "fixo"
                         }
@@ -658,12 +656,11 @@ def modulo_plano_contas():
     
     # Editor do Plano de Contas
     df_contas = pd.DataFrame(st.session_state.plano_contas)
-    df_contas = df_contas[["codigo", "nome", "tipo", "natureza"]]
+    df_contas = df_contas[["nome", "tipo", "natureza"]]
     
     edited_df = st.data_editor(
         df_contas,
         column_config={
-            "codigo": st.column_config.TextColumn("Código", width="small"),
             "nome": st.column_config.TextColumn("Nome da Conta", width="large"),
             "tipo": st.column_config.SelectboxColumn(
                 "Tipo",
@@ -690,7 +687,6 @@ def modulo_plano_contas():
             original = st.session_state.plano_contas[idx] if idx < len(st.session_state.plano_contas) else None
             novas_contas.append({
                 "id": original["id"] if original else idx + 1000,
-                "codigo": row["codigo"],
                 "nome": row["nome"],
                 "tipo": row["tipo"],
                 "natureza": row["natureza"],
@@ -699,21 +695,18 @@ def modulo_plano_contas():
     
     # Adicionar nova conta
     with st.expander("➕ Adicionar Nova Conta"):
-        col1, col2, col3, col4 = st.columns([2, 2, 2, 1])
+        col1, col2, col3 = st.columns([4, 2, 1])
         with col1:
-            novo_codigo = st.text_input("Código", placeholder="3.7")
-        with col2:
             novo_nome = st.text_input("Nome", placeholder="Seguros")
-        with col3:
+        with col2:
             novo_tipo = st.selectbox("Tipo", ["receita", "deducao", "custo", "custoIndireto", "despesa"])
-        with col4:
+        with col3:
             nova_natureza = st.selectbox("Natureza", ["fixo", "variavel", "misto"])
         
         if st.button("Adicionar Conta", use_container_width=True):
             if novo_nome:
                 st.session_state.plano_contas.append({
                     "id": len(st.session_state.plano_contas) + 1000,
-                    "codigo": novo_codigo or f"{len(st.session_state.plano_contas)+1}",
                     "nome": novo_nome,
                     "tipo": novo_tipo,
                     "natureza": nova_natureza,
