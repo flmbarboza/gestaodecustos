@@ -2187,6 +2187,67 @@ def modulo_info():
         Preço = Custo ÷ (1 − %Impostos − %Lucro)
         """)
 
+# ─── EXPORTAÇÃO / IMPORTAÇÃO DO ESTADO ──────────────────────────────────────────
+
+def exportar_estado():
+    """Serializa o estado atual em JSON para download"""
+    estado = {
+        "versao": "1.0",
+        "data_exportacao": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+        "nome_empresa": st.session_state.get("nome_empresa", ""),
+        "periodo": st.session_state.get("periodo", ""),
+        "regime": st.session_state.get("regime", ""),
+        "plano_contas": st.session_state.get("plano_contas", []),
+        "produtos": st.session_state.get("produtos", []),
+        "vendas": st.session_state.get("vendas", []),
+        "despesas": st.session_state.get("despesas", []),
+        "estoque_inicial": st.session_state.get("estoque_inicial", []),
+        "estoque_final": st.session_state.get("estoque_final", []),
+        "producao_mes": st.session_state.get("producao_mes", []),
+        "comissao_perc": st.session_state.get("comissao_perc", 5),
+        "criterios_rateio": st.session_state.get("criterios_rateio", []),
+        "pesos_rateio": st.session_state.get("pesos_rateio", {}),
+        "markup_perc": {str(k): v for k, v in st.session_state.get("markup_perc", {}).items()},
+        "preco_mercado": {str(k): v for k, v in st.session_state.get("preco_mercado", {}).items()},
+        "laudo": st.session_state.get("laudo", {}),
+    }
+    return json.dumps(estado, ensure_ascii=False, indent=2)
+
+
+def importar_estado(conteudo_json):
+    """Restaura o estado a partir de um JSON carregado"""
+    try:
+        estado = json.loads(conteudo_json)
+    except Exception as e:
+        return False, f"Arquivo JSON inválido: {str(e)}"
+    
+    # Validação básica
+    if not isinstance(estado, dict):
+        return False, "Formato de arquivo inválido."
+    
+    if "plano_contas" not in estado:
+        return False, "O arquivo não contém um plano de contas válido."
+    
+    # Restaura cada chave
+    chaves = [
+        "nome_empresa", "periodo", "regime",
+        "plano_contas", "produtos", "vendas", "despesas",
+        "estoque_inicial", "estoque_final", "producao_mes",
+        "comissao_perc", "criterios_rateio", "pesos_rateio",
+        "laudo",
+    ]
+    for chave in chaves:
+        if chave in estado:
+            st.session_state[chave] = estado[chave]
+    
+    # Restaura os dicionários com chaves inteiras
+    if "markup_perc" in estado:
+        st.session_state.markup_perc = {int(k): v for k, v in estado["markup_perc"].items()}
+    if "preco_mercado" in estado:
+        st.session_state.preco_mercado = {int(k): v for k, v in estado["preco_mercado"].items()}
+    
+    return True, estado.get("data_exportacao", "data desconhecida")
+    
 # ─── FUNÇÃO PRINCIPAL ───────────────────────────────────────────────────────────
 
 def main():
@@ -2244,6 +2305,86 @@ def main():
         
         st.divider()
         
+        # ─── SEÇÃO: SALVAR / CARREGAR ATIVIDADE ─────────────────────────────────
+        st.markdown("""
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8d96a0;
+                    text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">
+            💾 Atividade
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Salvar (download)
+        nome_arquivo_sugerido = f"syscost_{st.session_state.get('nome_empresa', 'atividade').replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M')}.json"
+        st.download_button(
+            label="💾 Salvar Atividade",
+            data=exportar_estado(),
+            file_name=nome_arquivo_sugerido,
+            mime="application/json",
+            use_container_width=True,
+            help="Baixe um arquivo com toda a sua atividade para continuar depois"
+        )
+        
+        # Carregar (upload)
+        with st.expander("📂 Carregar Atividade", expanded=False):
+            st.caption("Selecione um arquivo `.json` salvo anteriormente para continuar de onde parou.")
+            
+            # Controle de versão para permitir reset do uploader
+            if "uploader_estado_version" not in st.session_state:
+                st.session_state.uploader_estado_version = 0
+            
+            uploaded_estado = st.file_uploader(
+                "Arquivo de atividade (.json)",
+                type=["json"],
+                key=f"upload_estado_{st.session_state.uploader_estado_version}",
+                label_visibility="collapsed"
+            )
+            
+            if uploaded_estado is not None:
+                try:
+                    conteudo = uploaded_estado.read().decode("utf-8")
+                    
+                    # Pré-visualização
+                    try:
+                        preview = json.loads(conteudo)
+                        st.markdown("**📋 Resumo do arquivo:**")
+                        st.markdown(f"""
+                        - 🏢 **Empresa:** {preview.get('nome_empresa', '—')}
+                        - 📅 **Período:** {preview.get('periodo', '—')}
+                        - 📋 **Contas:** {len(preview.get('plano_contas', []))}
+                        - 🛒 **Produtos:** {len(preview.get('produtos', []))}
+                        - 💰 **Despesas:** {len(preview.get('despesas', []))}
+                        - 🕒 **Exportado em:** {preview.get('data_exportacao', '—')}
+                        """)
+                    except Exception:
+                        st.warning("Não foi possível pré-visualizar o arquivo.")
+                        preview = None
+                    
+                    col_a, col_b = st.columns(2)
+                    with col_a:
+                        if st.button("✅ Carregar", type="primary", use_container_width=True, key="btn_carregar_estado"):
+                            sucesso, info = importar_estado(conteudo)
+                            if sucesso:
+                                st.session_state.mensagem_carregamento = f"✅ Atividade carregada com sucesso! (Exportada em {info})"
+                                st.session_state.uploader_estado_version += 1
+                                st.session_state.page = "plano"
+                                st.rerun()
+                            else:
+                                st.error(f"❌ {info}")
+                    with col_b:
+                        if st.button("❌ Cancelar", use_container_width=True, key="btn_cancelar_estado"):
+                            st.session_state.uploader_estado_version += 1
+                            st.rerun()
+                except Exception as e:
+                    st.error(f"Erro ao ler arquivo: {str(e)}")
+            
+            # Mostra mensagem de sucesso após rerun
+            if st.session_state.get("mensagem_carregamento"):
+                st.success(st.session_state.mensagem_carregamento)
+                st.session_state.mensagem_carregamento = None
+        
+        st.divider()
+        
+        # Restaurar exemplo
         if st.button("🔄 Restaurar Dados de Exemplo", use_container_width=True):
             estado_inicial = get_initial_state()
             for key, value in estado_inicial.items():
@@ -2251,7 +2392,7 @@ def main():
             st.session_state.initialized = True
             st.rerun()
         
-        st.caption("SysCost")
+        st.caption("SysCost v1.0")
     
     page = st.session_state.get("page", "plano")
     
