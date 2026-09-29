@@ -1940,7 +1940,7 @@ def modulo_dre():
     
     col1, col2 = st.columns(2)
     
-        with col1:
+    with col1:
         st.subheader("📋 Custeio por Absorção")
         render_alert("""
         Todos os custos de produção (diretos + indiretos) são alocados ao produto.
@@ -1988,7 +1988,7 @@ def modulo_dre():
             render_kpi("Margem Líquida", fmtP(safe_div(indicadores["ll_absorcao"], indicadores["rl"]) * 100),
                        color="#3fb950" if indicadores["ll_absorcao"] >= 0 else "#f85149")
     
-        with col2:
+    with col2:
         st.subheader("📋 Custeio Variável (Gerencial)")
         render_alert("""
         Separa custos fixos dos variáveis. Evidencia a <strong>Margem de Contribuição</strong>.
