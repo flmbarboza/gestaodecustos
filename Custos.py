@@ -673,15 +673,42 @@ def modulo_plano_contas():
             """)
     
     # ─── SEÇÃO: IMPORTAR PLANILHA ───────────────────────────────────────────────
+        # ─── SEÇÃO: IMPORTAR PLANILHA ───────────────────────────────────────────────
     st.subheader("📤 Importar Planilha Preenchida")
     
-    with st.expander("📥 Importar Plano de Contas (XLSX/CSV)", expanded=False):
+    with st.expander("📥 Importar Plano de Contas (XLSX/CSV)", expanded=True):
+        
+        # Passo 1: Escolher modo de importação
+        modo_importacao = st.radio(
+            "**Como deseja importar?**",
+            options=["adicionar", "substituir"],
+            format_func=lambda x: "➕ Adicionar ao plano atual" if x == "adicionar" else "🔄 Substituir todo o plano atual",
+            horizontal=True,
+            key="modo_importacao"
+        )
+        
+        if modo_importacao == "substituir":
+            render_alert(
+                "⚠️ <strong>Atenção:</strong> O plano de contas atual será <strong>totalmente substituído</strong> "
+                "pelas contas da planilha. Lançamentos de despesas vinculados a contas antigas podem ficar órfãos.",
+                type="warn"
+            )
+        else:
+            render_alert(
+                "ℹ️ As contas da planilha serão <strong>adicionadas</strong> ao plano atual. "
+                "Use esta opção para complementar o plano existente.",
+                type="info"
+            )
+        
+        # Passo 2: Upload do arquivo
         uploaded_file = st.file_uploader(
             "Arraste ou selecione uma planilha preenchida",
             type=["xlsx", "xls", "csv"],
             key="plano_upload",
             help="Use a planilha modelo como base para preencher seus dados"
         )
+        
+        # Passo 3: Pré-visualização + confirmação
         if uploaded_file:
             try:
                 # Lê o arquivo (primeira aba se for Excel)
@@ -703,13 +730,16 @@ def modulo_plano_contas():
                 if col_nome is None:
                     st.error("❌ Coluna 'Nome' não encontrada. Use a planilha modelo como base.")
                 else:
+                    # Processa as linhas da planilha
                     novas_contas = []
-                    for _, row in df.iterrows():
+                    erros = []
+                    
+                    for i, row in df.iterrows():
                         if pd.isna(row[col_nome]) or str(row[col_nome]).strip() == "":
                             continue
                         
                         conta = {
-                            "id": len(st.session_state.plano_contas) + len(novas_contas) + 1000,
+                            "id": None,  # Definido depois
                             "nome": str(row[col_nome]).strip(),
                             "tipo": "despesa",
                             "natureza": "---",
@@ -752,14 +782,72 @@ def modulo_plano_contas():
                         
                         novas_contas.append(conta)
                     
+                    # ─── PRÉ-VISUALIZAÇÃO ───────────────────────────────────────
                     if novas_contas:
-                        st.session_state.plano_contas.extend(novas_contas)
-                        st.success(f"✅ {len(novas_contas)} conta(s) importada(s) com sucesso!")
-                        st.rerun()
+                        st.markdown("---")
+                        st.markdown(f"### 👁️ Pré-visualização — **{len(novas_contas)} conta(s) encontrada(s)**")
+                        
+                        df_preview = pd.DataFrame([
+                            {
+                                "Nome": c["nome"],
+                                "Tipo": c["tipo"],
+                                "Natureza": c["natureza"],
+                                "Comportamento": c["comportamento"],
+                            }
+                            for c in novas_contas
+                        ])
+                        st.dataframe(df_preview, use_container_width=True, hide_index=True)
+                        
+                        # Resumo do que vai acontecer
+                        if modo_importacao == "substituir":
+                            st.markdown(f"""
+                            <div class="alert-warn" style="margin-top: 12px;">
+                                🔄 <strong>Substituição:</strong> As <strong>{len(st.session_state.plano_contas)}</strong> conta(s) atuais 
+                                serão <strong>removidas</strong> e <strong>{len(novas_contas)}</strong> nova(s) conta(s) serão carregadas.
+                            </div>
+                            """, unsafe_allow_html=True)
+                        else:
+                            st.markdown(f"""
+                            <div class="alert-info" style="margin-top: 12px;">
+                                ➕ <strong>Adição:</strong> As <strong>{len(novas_contas)}</strong> nova(s) conta(s) serão 
+                                adicionadas às <strong>{len(st.session_state.plano_contas)}</strong> já existentes 
+                                (total: {len(st.session_state.plano_contas) + len(novas_contas)}).
+                            </div>
+                            """, unsafe_allow_html=True)
+                        
+                        # ─── BOTÕES DE AÇÃO ─────────────────────────────────────
+                        st.markdown("")
+                        col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 2])
+                        
+                        with col_btn1:
+                            if st.button("✅ Confirmar Importação", type="primary", use_container_width=True):
+                                if modo_importacao == "substituir":
+                                    # Substitui tudo
+                                    for i, c in enumerate(novas_contas):
+                                        c["id"] = i + 1
+                                    st.session_state.plano_contas = novas_contas
+                                    # Limpa despesas vinculadas a contas antigas
+                                    st.session_state.despesas = []
+                                    st.success(f"🔄 Plano substituído: {len(novas_contas)} conta(s) carregada(s).")
+                                else:
+                                    # Adiciona ao existente
+                                    for i, c in enumerate(novas_contas):
+                                        c["id"] = len(st.session_state.plano_contas) + i + 1000
+                                    st.session_state.plano_contas.extend(novas_contas)
+                                    st.success(f"➕ {len(novas_contas)} conta(s) adicionada(s) ao plano atual.")
+                                
+                                # Limpa o uploader
+                                st.session_state.plano_upload = None
+                                st.rerun()
+                        
+                        with col_btn2:
+                            if st.button("❌ Cancelar", use_container_width=True):
+                                st.session_state.plano_upload = None
+                                st.rerun()
                     else:
                         st.warning("⚠️ Nenhuma linha válida encontrada na planilha.")
             except Exception as e:
-                st.error(f"❌ Erro ao importar: {str(e)}")
+                st.error(f"❌ Erro ao ler a planilha: {str(e)}")
     
     # ─── SEÇÃO: EDITOR DO PLANO DE CONTAS ───────────────────────────────────────
     st.subheader("📝 Editor do Plano de Contas")
