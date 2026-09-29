@@ -1017,6 +1017,549 @@ def gerar_planilha_modelo():
     
     return output.getvalue()
 
+# ─── MÓDULO: LANÇAMENTOS DE VALORES ─────────────────────────────────────────────
+
+def sugerir_conta(nome_lancamento, plano_contas):
+    """
+    Classificador inteligente: sugere a conta do plano para um lançamento.
+    Usa palavras-chave para inferir o tipo e o nome mais provável.
+    Retorna (conta_id, motivo) ou (None, motivo).
+    """
+    nome = str(nome_lancamento).lower().strip()
+    
+    # ─── Regras de classificação por palavras-chave ────────────────────────────
+    # Estrutura: (palavras-chave, tipo_alvo, palavras_no_nome_da_conta)
+    regras = [
+        # CUSTOS DIRETOS
+        (["matéria-prima", "materia prima", "mp ", "mat. prima"], "custo_direto", ["matéria-prima", "materia-prima", "matéria prima"]),
+        (["embalagem", "embalagens"], "custo_direto", ["embalagem"]),
+        (["mão de obra direta", "mod ", "mo direta", "operador", "operário"], "custo_direto", ["mão de obra direta", "mo direta", "mod"]),
+        
+        # CUSTOS INDIRETOS
+        (["mão de obra indireta", "moi ", "supervisor", "supervisão", "encarregado"], "custo_indireto", ["mão de obra indireta", "moi", "supervis"]),
+        (["aluguel fábrica", "aluguel da fábrica", "aluguel galpão", "aluguel industrial"], "custo_indireto", ["aluguel", "fábrica"]),
+        (["depreciação de máquina", "depreciação máquina", "depreciação equip. produção", "depreciação fabril"], "custo_indireto", ["deprecia", "máquina"]),
+        (["manutenção", "manutençao", "manutencao", "reparo", "conserto"], "custo_indireto", ["manuten", "reparo", "conserto"]),
+        (["energia elétrica fábrica", "energia fabril", "energia produção", "luz fábrica"], "custo_indireto", ["energia", "elétrica"]),
+        (["material de consumo", "materiais auxiliares", "insumos indiretos", "epi", "uniformes"], "custo_indireto", ["material", "consumo", "insumo", "epi"]),
+        (["seguro fábrica", "seguro industrial", "seguro produção"], "custo_indireto", ["seguro", "fábrica"]),
+        (["controle de qualidade", "cq ", "qualidade"], "custo_indireto", ["qualidade", "controle"]),
+        
+        # DESPESAS - ADMINISTRATIVAS
+        (["salário admin", "salarios admin", "salários administr", "folha admin", "pessoal admin"], "despesa", ["salário", "administr"]),
+        (["aluguel admin", "aluguel escritório", "aluguel sede"], "despesa", ["aluguel", "admin"]),
+        (["depreciação administrativa", "depreciação escritório", "depreciação móveis"], "despesa", ["deprecia", "admin"]),
+        (["material de escritório", "papelaria", "expediente"], "despesa", ["material", "escritório", "papelaria"]),
+        (["contabilidade", "honorários contábeis", "assessoria contábil"], "despesa", ["contabil"]),
+        (["advogado", "jurídico", "honorários advocatícios"], "despesa", ["jurídic", "advog", "honorár"]),
+        (["software", "sistema", "licença", "assinatura digital"], "despesa", ["software", "sistema", "licen"]),
+        
+        # DESPESAS - COMERCIAIS
+        (["comissão", "comissões", "comissao", "comissoes"], "despesa", ["comiss"]),
+        (["propaganda", "publicidade", "marketing", "anúncio", "anuncio", "mídia", "midia"], "despesa", ["propaganda", "publicidade", "marketing", "anúncio"]),
+        (["frete sobre venda", "frete venda", "entrega cliente", "logística de entrega"], "despesa", ["frete", "venda", "entrega"]),
+        (["viagem", "viagens", "deslocamento comercial"], "despesa", ["viagem", "deslocamento"]),
+        
+        # DESPESAS - FINANCEIRAS
+        (["juros", "juros passivos", "juros de empréstimo", "encargos financeiros"], "despesa", ["juros", "encargo"]),
+        (["iof", "tarifa bancária", "tarifas bancárias", "despesa bancária", "taxa bancária", "câmbio"], "despesa", ["bancária", "iof", "tarifa"]),
+        
+        # IMPOSTOS (Deduções)
+        (["icms", "pis", "cofins", "iss", "simples nacional", "das ", "imposto sobre venda", "tributo sobre venda"], "receita", ["dedu", "imposto", "tributo"]),
+        
+        # INVESTIMENTOS
+        (["aquisição de máquina", "compra de máquina", "máquina nova", "equipamento novo", "imobilizado"], "investimento", ["aquisi", "máquina", "imobilizado", "equipamento"]),
+        (["compra de veículo", "aquisição de veículo", "carro novo"], "investimento", ["veículo", "carro"]),
+        (["reforma", "obra", "construção", "ampliação"], "investimento", ["reforma", "obra", "amplia"]),
+        
+        # PERDAS
+        (["perda", "perdas", "avaria", "deterioração", "obsolescência", "sinistro", "roubo", "furto"], "perda", ["perda", "avaria", "sinistro"]),
+        (["inadimplência", "inadimplencia", "calote", "devedores duvidosos", "inadimplente"], "perda", ["inadimpl", "devedor", "calote"]),
+    ]
+    
+    # 1) Tenta casar com regras específicas
+    for palavras_chave, tipo_alvo, palavras_conta in regras:
+        for palavra in palavras_chave:
+            if palavra in nome:
+                # Procura uma conta do tipo alvo cujo nome bata com alguma palavra
+                for conta in plano_contas:
+                    if conta["tipo"] != tipo_alvo:
+                        continue
+                    nome_conta_lower = conta["nome"].lower()
+                    if any(pc in nome_conta_lower for pc in palavras_conta):
+                        return conta["id"], f"Correspondência por palavra-chave: *{palavra}*"
+                # Se não achou conta específica, pega a primeira do tipo
+                for conta in plano_contas:
+                    if conta["tipo"] == tipo_alvo:
+                        return conta["id"], f"Sugestão genérica (tipo *{tipo_alvo}*)"
+    
+    # 2) Busca por similaridade simples (palavras em comum)
+    palavras_lancamento = set(nome.split())
+    melhor_conta = None
+    melhor_score = 0
+    for conta in plano_contas:
+        palavras_conta = set(conta["nome"].lower().split())
+        score = len(palavras_lancamento & palavras_conta)
+        if score > melhor_score:
+            melhor_score = score
+            melhor_conta = conta
+    
+    if melhor_conta and melhor_score > 0:
+        return melhor_conta["id"], f"Similaridade de nome (score {melhor_score})"
+    
+    # 3) Fallback: primeira conta de despesa
+    for conta in plano_contas:
+        if conta["tipo"] == "despesa":
+            return conta["id"], "Fallback (despesa genérica)"
+    
+    # 4) Último recurso
+    if plano_contas:
+        return plano_contas[0]["id"], "Fallback (primeira conta)"
+    
+    return None, "Nenhuma conta disponível"
+
+
+def gerar_planilha_modelo_lancamentos():
+    """Gera planilha modelo para importação de lançamentos"""
+    output = io.BytesIO()
+    
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        # Aba 1: Modelo
+        df_modelo = pd.DataFrame([
+            {"Data": "05/01/2026", "Descrição": "Compra de matéria-prima lote A", "Valor": 15000.00},
+            {"Data": "05/01/2026", "Descrição": "Embalagens plásticas", "Valor": 3200.00},
+            {"Data": "10/01/2026", "Descrição": "Folha de pagamento da produção", "Valor": 22000.00},
+            {"Data": "10/01/2026", "Descrição": "Salários administrativos", "Valor": 18000.00},
+            {"Data": "15/01/2026", "Descrição": "Aluguel da fábrica janeiro", "Valor": 8000.00},
+            {"Data": "15/01/2026", "Descrição": "Aluguel do escritório", "Valor": 4000.00},
+            {"Data": "20/01/2026", "Descrição": "Conta de energia da fábrica", "Valor": 3500.00},
+            {"Data": "20/01/2026", "Descrição": "Manutenção preventiva de máquinas", "Valor": 1800.00},
+            {"Data": "25/01/2026", "Descrição": "Comissões sobre vendas", "Valor": 5200.00},
+            {"Data": "28/01/2026", "Descrição": "Propaganda em redes sociais", "Valor": 2500.00},
+            {"Data": "30/01/2026", "Descrição": "Juros sobre financiamento", "Valor": 1500.00},
+            {"Data": "31/01/2026", "Descrição": "Depreciação de máquinas", "Valor": 5000.00},
+            {"Data": "31/01/2026", "Descrição": "Compra de máquina nova (torno CNC)", "Valor": 45000.00},
+        ])
+        df_modelo.to_excel(writer, sheet_name="Lançamentos", index=False)
+        
+        # Aba 2: Instruções
+        df_instrucoes = pd.DataFrame([
+            {"Coluna": "Data", "Descrição": "Data do lançamento (formato DD/MM/AAAA)", "Exemplo": "05/01/2026"},
+            {"Coluna": "Descrição", "Descrição": "Descrição clara do lançamento — o sistema usa isso para sugerir a conta", "Exemplo": "Compra de matéria-prima lote A"},
+            {"Coluna": "Valor", "Descrição": "Valor em reais (use ponto para decimais, sem R$)", "Exemplo": "15000.00"},
+        ])
+        df_instrucoes.to_excel(writer, sheet_name="Instruções", index=False)
+        
+        # Ajusta larguras
+        for sheet_name in writer.sheets:
+            ws = writer.sheets[sheet_name]
+            ws.column_dimensions['A'].width = 15
+            ws.column_dimensions['B'].width = 45
+            ws.column_dimensions['C'].width = 18
+        
+    return output.getvalue()
+
+
+def modulo_lancamentos():
+    """Módulo: Lançamentos de valores com sugestão automática de conta"""
+    st.header("💰 Lançamentos de Valores")
+    
+    render_alert("""
+    Registre os lançamentos do período. Para cada lançamento, o sistema 
+    <strong>sugere automaticamente a conta</strong> do plano de contas que melhor se encaixa.
+    Você pode <strong>revisar e ajustar</strong> cada sugestão antes de confirmar.
+    """)
+    
+    plano = st.session_state.plano_contas
+    if not plano:
+        st.warning("⚠️ Nenhuma conta cadastrada. Vá até **📋 Plano de Contas** e cadastre ou importe suas contas primeiro.")
+        return
+    
+    # ─── Inicializa estruturas no session_state ────────────────────────────────
+    if "lancamentos" not in st.session_state:
+        st.session_state.lancamentos = {}
+    if "lancamentos_pendentes" not in st.session_state:
+        st.session_state.lancamentos_pendentes = []   # lista de dicts aguardando revisão
+    
+    # Opções de contas formatadas
+    opcoes_contas = {c["id"]: f"[{c['tipo']}] {c['nome']}" for c in plano}
+    
+    # ═══════════════════════════════════════════════════════════════════════════
+    # SEÇÃO 1: VENDAS (produtos e preços)
+    # ═══════════════════════════════════════════════════════════════════════════
+    st.subheader("🛒 Vendas de Produtos")
+    
+    if st.session_state.produtos:
+        df_produtos = pd.DataFrame([
+            {
+                "Produto": p["nome"],
+                "Unidade": p.get("unidade", "un"),
+                "Quantidade": v["qtd"],
+                "Preço Unit.": v["preco_unit"],
+                "Custo Unit.": v["custo_unit"],
+                "Impostos %": v["impostos"],
+            }
+            for p, v in zip(st.session_state.produtos, st.session_state.vendas)
+        ])
+        
+        edited_vendas = st.data_editor(
+            df_produtos,
+            column_config={
+                "Produto": st.column_config.TextColumn("Produto", disabled=True, width="medium"),
+                "Unidade": st.column_config.TextColumn("Un.", disabled=True, width="small"),
+                "Quantidade": st.column_config.NumberColumn("Qtd", min_value=0.0, step=1.0, format="%.2f"),
+                "Preço Unit.": st.column_config.NumberColumn("Preço (R$)", min_value=0.0, step=0.01, format="%.2f"),
+                "Custo Unit.": st.column_config.NumberColumn("Custo (R$)", min_value=0.0, step=0.01, format="%.2f"),
+                "Impostos %": st.column_config.NumberColumn("Impostos %", min_value=0.0, max_value=100.0, step=0.1, format="%.2f"),
+            },
+            use_container_width=True,
+            hide_index=True,
+            key="lanc_vendas_editor"
+        )
+        
+        for i, row in edited_vendas.iterrows():
+            if i < len(st.session_state.vendas):
+                st.session_state.vendas[i]["qtd"] = float(row["Quantidade"])
+                st.session_state.vendas[i]["preco_unit"] = float(row["Preço Unit."])
+                st.session_state.vendas[i]["custo_unit"] = float(row["Custo Unit."])
+                st.session_state.vendas[i]["impostos"] = float(row["Impostos %"])
+        
+        col1, col2 = st.columns([1, 3])
+        with col1:
+            comissao = st.number_input(
+                "Comissão s/ vendas (%)",
+                value=float(st.session_state.get("comissao_perc", 5)),
+                min_value=0.0, max_value=100.0, step=0.5,
+                key="lanc_comissao"
+            )
+            st.session_state.comissao_perc = comissao
+    else:
+        st.info("Nenhum produto cadastrado. Adicione produtos na aba **🛒 Vendas**.")
+    
+    st.divider()
+    
+    # ═══════════════════════════════════════════════════════════════════════════
+    # SEÇÃO 2: PLANILHA MODELO E IMPORTAÇÃO EM LOTE
+    # ═══════════════════════════════════════════════════════════════════════════
+    st.subheader("📥 Importar Lançamentos em Lote (XLSX/CSV)")
+    
+    col_a, col_b = st.columns([1, 1])
+    with col_a:
+        planilha_modelo = gerar_planilha_modelo_lancamentos()
+        st.download_button(
+            label="⬇️ Baixar Planilha Modelo",
+            data=planilha_modelo,
+            file_name="modelo_lancamentos.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+            help="Planilha com colunas: Data, Descrição, Valor"
+        )
+    with col_b:
+        with st.popover("ℹ️ Como usar"):
+            st.markdown("""
+            **Colunas obrigatórias:**
+            - `Data` — formato DD/MM/AAAA (opcional)
+            - `Descrição` — texto que descreve o gasto
+            - `Valor` — número em reais (ex: 1500.50)
+            
+            **O que acontece ao importar:**
+            1. O sistema lê cada linha
+            2. Para cada descrição, **sugere uma conta**
+            3. As sugestões vão para uma **lista de revisão**
+            4. Você confirma ou corrige cada uma
+            5. Depois confirma tudo e os valores são lançados
+            """)
+    
+    # Uploader com controle de versão
+    if "uploader_lanc_version" not in st.session_state:
+        st.session_state.uploader_lanc_version = 0
+    
+    uploaded_file = st.file_uploader(
+        "Arraste ou selecione a planilha de lançamentos",
+        type=["xlsx", "xls", "csv"],
+        key=f"lanc_upload_{st.session_state.uploader_lanc_version}",
+        label_visibility="collapsed"
+    )
+    
+    if uploaded_file is not None:
+        try:
+            if uploaded_file.name.endswith(('.xlsx', '.xls')):
+                df_import = pd.read_excel(uploaded_file)
+            else:
+                df_import = pd.read_csv(uploaded_file)
+            
+            # Normaliza colunas
+            df_import.columns = [str(c).strip() for c in df_import.columns]
+            cols_lower = {c.lower(): c for c in df_import.columns}
+            
+            col_data = cols_lower.get('data')
+            col_desc = cols_lower.get('descrição') or cols_lower.get('descricao') or cols_lower.get('desc')
+            col_valor = cols_lower.get('valor') or cols_lower.get('valor (r$)') or cols_lower.get('montante')
+            
+            if col_desc is None or col_valor is None:
+                st.error("❌ A planilha precisa ter as colunas **Descrição** e **Valor**. Baixe o modelo para referência.")
+            else:
+                pendentes = []
+                for _, row in df_import.iterrows():
+                    descricao = str(row[col_desc]).strip() if not pd.isna(row[col_desc]) else ""
+                    if not descricao:
+                        continue
+                    try:
+                        valor = float(str(row[col_valor]).replace("R$", "").replace(".", "").replace(",", ".").strip())
+                    except:
+                        try:
+                            valor = float(row[col_valor])
+                        except:
+                            valor = 0.0
+                    if valor <= 0:
+                        continue
+                    
+                    data = str(row[col_data]).strip() if col_data and not pd.isna(row[col_data]) else ""
+                    
+                    # Sugere conta
+                    conta_sugerida_id, motivo = sugerir_conta(descricao, plano)
+                    
+                    pendentes.append({
+                        "data": data,
+                        "descricao": descricao,
+                        "valor": valor,
+                        "conta_sugerida_id": conta_sugerida_id,
+                        "motivo": motivo,
+                        "conta_confirmada_id": conta_sugerida_id,  # o usuário pode alterar
+                    })
+                
+                if pendentes:
+                    # Adiciona à fila de revisão
+                    st.session_state.lancamentos_pendentes = pendentes
+                    st.success(f"✅ {len(pendentes)} lançamento(s) lido(s). **Revise as sugestões abaixo.**")
+                    st.session_state.uploader_lanc_version += 1
+                    st.rerun()
+                else:
+                    st.warning("⚠️ Nenhum lançamento válido encontrado na planilha.")
+        except Exception as e:
+            st.error(f"❌ Erro ao processar planilha: {str(e)}")
+    
+    # ═══════════════════════════════════════════════════════════════════════════
+    # SEÇÃO 3: ADIÇÃO MANUAL DE LANÇAMENTO
+    # ═══════════════════════════════════════════════════════════════════════════
+    with st.expander("➕ Adicionar lançamento manualmente", expanded=False):
+        col1, col2, col3 = st.columns([1, 3, 1])
+        with col1:
+            manual_data = st.text_input("Data (opcional)", placeholder="DD/MM/AAAA", key="manual_data")
+        with col2:
+            manual_desc = st.text_input("Descrição do lançamento", placeholder="Ex: Conta de energia da fábrica", key="manual_desc")
+        with col3:
+            manual_valor = st.number_input("Valor (R$)", min_value=0.0, step=100.0, format="%.2f", key="manual_valor")
+        
+        if st.button("🔍 Sugerir conta e adicionar à revisão", use_container_width=True):
+            if manual_desc and manual_valor > 0:
+                conta_id, motivo = sugerir_conta(manual_desc, plano)
+                st.session_state.lancamentos_pendentes.append({
+                    "data": manual_data,
+                    "descricao": manual_desc,
+                    "valor": manual_valor,
+                    "conta_sugerida_id": conta_id,
+                    "motivo": motivo,
+                    "conta_confirmada_id": conta_id,
+                })
+                st.rerun()
+            else:
+                st.warning("Preencha a descrição e um valor maior que zero.")
+    
+    # ═══════════════════════════════════════════════════════════════════════════
+    # SEÇÃO 4: REVISÃO DOS LANÇAMENTOS PENDENTES
+    # ═══════════════════════════════════════════════════════════════════════════
+    pendentes = st.session_state.lancamentos_pendentes
+    if pendentes:
+        st.divider()
+        st.subheader(f"🔍 Revisão de Lançamentos ({len(pendentes)} pendente(s))")
+        
+        render_alert(
+            "Verifique se a <strong>conta sugerida</strong> está correta. "
+            "Se não estiver, ajuste no seletor ao lado. Depois clique em <strong>Confirmar Todos</strong>.",
+            type="info"
+        )
+        
+        # Cabeçalho da tabela de revisão
+        header = st.columns([1, 3, 1, 3, 2, 1])
+        with header[0]:
+            st.markdown("**Data**")
+        with header[1]:
+            st.markdown("**Descrição**")
+        with header[2]:
+            st.markdown("**Valor**")
+        with header[3]:
+            st.markdown("**Conta Sugerida**")
+        with header[4]:
+            st.markdown("**Motivo**")
+        with header[5]:
+            st.markdown("**Ação**")
+        
+        st.markdown("---")
+        
+        # Lista cada lançamento pendente com seletor de conta
+        linhas_para_remover = []
+        for idx, pend in enumerate(pendentes):
+            cols = st.columns([1, 3, 1, 3, 2, 1])
+            
+            with cols[0]:
+                st.markdown(f"<div style='padding-top:8px;font-size:12px;color:#8d96a0;'>{pend['data'] or '—'}</div>", unsafe_allow_html=True)
+            
+            with cols[1]:
+                st.markdown(f"<div style='padding-top:8px;'>{pend['descricao']}</div>", unsafe_allow_html=True)
+            
+            with cols[2]:
+                st.markdown(f"<div style='padding-top:8px;font-family:monospace;color:#3fb950;'>{fmtR(pend['valor'])}</div>", unsafe_allow_html=True)
+            
+            with cols[3]:
+                # Seletor com a sugestão pré-selecionada
+                opcoes_ids = list(opcoes_contas.keys())
+                idx_atual = opcoes_ids.index(pend["conta_confirmada_id"]) if pend["conta_confirmada_id"] in opcoes_ids else 0
+                
+                # Badge se for diferente da sugestão original
+                alterado = pend["conta_confirmada_id"] != pend["conta_sugerida_id"]
+                
+                nova_conta_id = st.selectbox(
+                    f"conta_{idx}",
+                    options=opcoes_ids,
+                    format_func=lambda x: opcoes_contas.get(x, f"ID {x}"),
+                    index=idx_atual,
+                    key=f"revisao_conta_{idx}",
+                    label_visibility="collapsed"
+                )
+                if nova_conta_id != pend["conta_confirmada_id"]:
+                    st.session_state.lancamentos_pendentes[idx]["conta_confirmada_id"] = nova_conta_id
+                    st.rerun()
+            
+            with cols[4]:
+                cor_motivo = "#3fb950" if not alterado else "#e3b341"
+                emoji = "🤖" if not alterado else "✏️"
+                st.markdown(
+                    f"<div style='padding-top:8px;font-size:11px;color:{cor_motivo};'>{emoji} {pend['motivo']}</div>",
+                    unsafe_allow_html=True
+                )
+            
+            with cols[5]:
+                if st.button("🗑", key=f"remover_pend_{idx}", help="Remover este lançamento"):
+                    linhas_para_remover.append(idx)
+        
+        # Remove itens marcados
+        if linhas_para_remover:
+            for idx in sorted(linhas_para_remover, reverse=True):
+                st.session_state.lancamentos_pendentes.pop(idx)
+            st.rerun()
+        
+        st.markdown("---")
+        
+        # Botões de ação
+        col1, col2, col3 = st.columns([1, 1, 2])
+        with col1:
+            if st.button("✅ Confirmar Todos", type="primary", use_container_width=True):
+                # Aplica cada lançamento na conta confirmada
+                for pend in st.session_state.lancamentos_pendentes:
+                    conta_id = pend["conta_confirmada_id"]
+                    if conta_id is None:
+                        continue
+                    valor_atual = num(st.session_state.lancamentos.get(conta_id, 0))
+                    st.session_state.lancamentos[conta_id] = valor_atual + pend["valor"]
+                
+                # Limpa a fila
+                n_confirmados = len(st.session_state.lancamentos_pendentes)
+                st.session_state.lancamentos_pendentes = []
+                st.session_state.mensagem_lanc = f"✅ {n_confirmados} lançamento(s) confirmado(s) e aplicado(s) às contas."
+                st.rerun()
+        
+        with col2:
+            if st.button("❌ Cancelar Tudo", use_container_width=True):
+                st.session_state.lancamentos_pendentes = []
+                st.rerun()
+        
+        with col3:
+            st.caption(f"Total dos pendentes: {fmtR(sum(p['valor'] for p in pendentes))}")
+    
+    # Mensagem de sucesso pós-rerun
+    if st.session_state.get("mensagem_lanc"):
+        st.success(st.session_state.mensagem_lanc)
+        st.session_state.mensagem_lanc = None
+    
+    st.divider()
+    
+    # ═══════════════════════════════════════════════════════════════════════════
+    # SEÇÃO 5: LANÇAMENTOS JÁ CONFIRMADOS
+    # ═══════════════════════════════════════════════════════════════════════════
+    st.subheader("📊 Lançamentos Consolidados por Conta")
+    
+    if not st.session_state.lancamentos or all(v == 0 for v in st.session_state.lancamentos.values()):
+        st.info("Nenhum valor lançado ainda. Importe uma planilha ou adicione manualmente acima.")
+    else:
+        # KPIs por tipo
+        lanc = st.session_state.lancamentos
+        tipos_ordem = ["custo_direto", "custo_indireto", "despesa", "investimento", "perda"]
+        cores_tipo = {
+            "custo_direto": "#e3b341",
+            "custo_indireto": "#d29922",
+            "despesa": "#f85149",
+            "investimento": "#58a6ff",
+            "perda": "#bc8cff",
+        }
+        
+        cols = st.columns(5)
+        for i, tipo in enumerate(tipos_ordem):
+            total = sum(
+                num(lanc.get(c["id"], 0))
+                for c in plano if c["tipo"] == tipo
+            )
+            with cols[i]:
+                render_kpi(
+                    tipo.replace("_", " ").title(),
+                    fmtR(total),
+                    color=cores_tipo[tipo]
+                )
+        
+        # Detalhamento por conta
+        st.markdown("#### Detalhamento por Conta")
+        
+        # Filtro por tipo
+        tipo_filtro = st.selectbox(
+            "Filtrar por tipo",
+            options=["Todos"] + tipos_ordem,
+            key="filtro_tipo_consolidado"
+        )
+        
+        dados_tabela = []
+        for c in plano:
+            if c["tipo"] == "receita":
+                continue
+            if tipo_filtro != "Todos" and c["tipo"] != tipo_filtro:
+                continue
+            valor = num(lanc.get(c["id"], 0))
+            if valor == 0:
+                continue
+            dados_tabela.append({
+                "Tipo": c["tipo"],
+                "Conta": c["nome"],
+                "Comportamento": c.get("comportamento", "---"),
+                "Valor": fmtR(valor),
+                "_valor_num": valor,
+            })
+        
+        if dados_tabela:
+            df_consolidado = pd.DataFrame(dados_tabela).sort_values(["Tipo", "_valor_num"], ascending=[True, False])
+            df_consolidado = df_consolidado.drop(columns=["_valor_num"])
+            st.dataframe(df_consolidado, use_container_width=True, hide_index=True)
+            
+            total_geral = sum(d["_valor_num"] for d in dados_tabela)
+            st.markdown(f"**Total: {fmtR(total_geral)}**")
+        else:
+            st.info("Nenhum lançamento para o filtro selecionado.")
+        
+        # Botão para zerar lançamentos
+        with st.expander("⚠️ Zerar lançamentos"):
+            st.warning("Esta ação remove **todos os valores lançados** (mas mantém o plano de contas).")
+            if st.button("🗑 Zerar todos os lançamentos", key="btn_zerar_lanc"):
+                st.session_state.lancamentos = {}
+                st.rerun()
+                
 def modulo_rateio():
     """Módulo: Critérios de Rateio - APENAS PARA CONTAS INDIRETAS"""
     st.header("⚖️ Critérios de Rateio")
@@ -2276,6 +2819,7 @@ def main():
         
         menu = {
             "📋 Plano de Contas": "plano",
+            "💰 Lançamentos": "lancamentos",
             "⚖️ Rateio": "rateio",
             "🛒 Vendas": "vendas",
             "📦 Estoque": "estoque",
@@ -2398,6 +2942,8 @@ def main():
     
     if page == "plano":
         modulo_plano_contas()
+    elif page == "lancamentos":
+        modulo_lancamentos()
     elif page == "rateio":
         modulo_rateio()
     elif page == "vendas":
