@@ -334,12 +334,13 @@ def get_initial_state():
             {"id": 3, "nome": "Produto C", "unidade": "cx"},
         ],
         
-        # Vendas
-        "vendas": [
-            {"produto_id": 1, "qtd": 500, "preco_unit": 120, "custo_unit": 65, "custo_direto": 55, "impostos": 12},
-            {"produto_id": 2, "qtd": 300, "preco_unit": 85, "custo_unit": 40, "custo_direto": 32, "impostos": 8.5},
-            {"produto_id": 3, "qtd": 200, "preco_unit": 200, "custo_unit": 100, "custo_direto": 80, "impostos": 20},
-        ],
+        # Modelo simplificado de receita
+        "receita_bruta_total": 100000.0,
+        "impostos_medio_perc": 12.0,
+        
+        # Produtos e vendas detalhadas (mantidos para compatibilidade)
+        "produtos": [{"id": 1, "nome": "Produto A", "unidade": "un"},],
+        "vendas": [{"produto_id": 1, "qtd": 0, "preco_unit": 0, "custo_unit": 0, "custo_direto": 0, "impostos": 0},],
         
         # Despesas - ajustado para contas indiretas e despesas
         "despesas": [
@@ -380,6 +381,27 @@ def get_initial_state():
         
         # Comissão
         "comissao_perc": 5,
+
+        # Lançamentos por conta (alimenta a DRE)
+        "lancamentos": {
+            3: 27500,    # Matéria-Prima Consumida
+            4: 5000,     # Material de Embalagem
+            5: 22000,    # Mão de Obra Direta
+            6: 25000,    # Mão de Obra Indireta
+            7: 8000,     # Aluguel da Fábrica
+            8: 5000,     # Depreciação de Máquinas
+            9: 3500,     # Manutenção de Equipamentos
+            10: 2000,    # Energia - Fábrica (fixa)
+            11: 1500,    # Energia - Fábrica (variável)
+            12: 1000,    # Materiais de Consumo
+            13: 3000,    # Seguros da Fábrica
+            14: 18000,   # Salários Administrativos
+            15: 4000,    # Aluguel Administrativo
+            16: 2000,    # Depreciação de Equip. Adm.
+            18: 4000,    # Propaganda e Publicidade
+            20: 1500,    # Juros Passivos
+            21: 500,     # Despesas Bancárias
+        },
         
         # Critérios de rateio
         "criterios_rateio": [
@@ -411,92 +433,101 @@ def get_initial_state():
 # ─── FUNÇÕES DE CÁLCULO ──────────────────────────────────────────────────────────
 
 def calcular_indicadores(state):
-    """Calcula todos os indicadores financeiros e gerenciais"""
-    vendas = state["vendas"]
-    produtos = state["produtos"]
-    despesas = state["despesas"]
+    """
+    Calcula todos os indicadores financeiros e gerenciais.
+    Fonte dos dados:
+      - Receita: state['receita_bruta_total'] e state['impostos_medio_perc']
+      - Custos e despesas: state['lancamentos'] (dicionário conta_id -> valor)
+    """
     plano_contas = state["plano_contas"]
-    comissao_perc = num(state["comissao_perc"])
+    lancamentos = state.get("lancamentos", {})
+    comissao_perc = num(state.get("comissao_perc", 0))
     
-    # Receita Bruta
-    rb = sum(num(v["qtd"]) * num(v["preco_unit"]) for v in vendas)
+    # ─── RECEITA ──────────────────────────────────────────────────────────────
+    rb = num(state.get("receita_bruta_total", 0))
+    impostos_perc = num(state.get("impostos_medio_perc", 0))
     
-    # Deduções de Vendas (impostos por produto)
-    deducoes_perc = sum(
-        num(v["qtd"]) * num(v["preco_unit"]) * num(v["impostos"]) / 100 
-        for v in vendas
-    )
+    deducoes_perc = rb * impostos_perc / 100
+    deducoes = deducoes_perc  # neste modelo, tudo vem do % médio
     
-    # Deduções do plano de contas
-    deducoes_plano = sum(
-        num(d["valor"]) for d in despesas
-        if any(c["id"] == d["conta_id"] and c["tipo"] == "receita" and "dedução" in c["nome"].lower() for c in plano_contas)
-    )
-    deducoes = deducoes_perc + deducoes_plano
-    
-    # Comissões
     comissoes = rb * comissao_perc / 100
+    rl = rb - deducoes - comissoes  # Receita Líquida
     
-    # Receita Líquida
-    rl = rb - deducoes - comissoes
+    # ─── CUSTOS E DESPESAS (dos lançamentos) ──────────────────────────────────
+    # Custos diretos
+    cpv_direto = sum(
+        num(lancamentos.get(c["id"], 0))
+        for c in plano_contas
+        if c["tipo"] == "custo_direto"
+    )
     
-    # CPV Direto (custos diretos)
-    cpv_direto = sum(num(v["qtd"]) * num(v["custo_unit"]) for v in vendas)
-    
-    # Custos Indiretos (rateio)
+    # Custos indiretos (serão rateados entre os produtos)
     custos_indiretos = sum(
-        num(d["valor"]) for d in despesas
-        if any(c["id"] == d["conta_id"] and c["tipo"] == "custo_indireto" for c in plano_contas)
+        num(lancamentos.get(c["id"], 0))
+        for c in plano_contas
+        if c["tipo"] == "custo_indireto"
     )
     
-    # Despesas (administrativas, comerciais, financeiras)
-    despesas_operacionais = sum(
-        num(d["valor"]) for d in despesas
-        if any(c["id"] == d["conta_id"] and c["tipo"] == "despesa" for c in plano_contas)
+    # Despesas por comportamento
+    despesas_fixas = sum(
+        num(lancamentos.get(c["id"], 0))
+        for c in plano_contas
+        if c["tipo"] == "despesa" and c.get("comportamento") == "fixo"
+    )
+    despesas_variaveis = sum(
+        num(lancamentos.get(c["id"], 0))
+        for c in plano_contas
+        if c["tipo"] == "despesa" and c.get("comportamento") == "variavel"
+    )
+    despesas_semivariaveis = sum(
+        num(lancamentos.get(c["id"], 0))
+        for c in plano_contas
+        if c["tipo"] == "despesa" and c.get("comportamento") == "semivariavel"
     )
     
-    # Custos e despesas variáveis
-    custos_var = cpv_direto + comissoes
+    # Total de despesas operacionais (para DRE por absorção)
+    despesas_operacionais = despesas_fixas + despesas_variaveis + despesas_semivariaveis
     
-    # Margem de Contribuição
+    # ─── DEPRECIAÇÃO (para PE Financeiro) ─────────────────────────────────────
+    depreciacao = sum(
+        num(lancamentos.get(c["id"], 0))
+        for c in plano_contas
+        if "deprecia" in c["nome"].lower()
+    )
+    
+    # ─── MARGEM DE CONTRIBUIÇÃO ───────────────────────────────────────────────
+    # Custos variáveis = CPV direto + comissões + despesas variáveis + semivariáveis
+    custos_var = cpv_direto + comissoes + despesas_variaveis + despesas_semivariaveis
     mc = rl - custos_var
     mc_perc = safe_div(mc, rl) * 100
     
-    # Custos Fixos (indiretos + despesas fixas)
-    custos_fixos = custos_indiretos + sum(
-        num(d["valor"]) for d in despesas
-        if any(c["id"] == d["conta_id"] and c["comportamento"] == "fixo" and c["tipo"] == "despesa" for c in plano_contas)
-    )
-    
-    # Depreciação (para PE Financeiro)
-    depreciacao = sum(
-        num(d["valor"]) for d in despesas
-        if any(c["id"] == d["conta_id"] and ("depreciação" in c["nome"].lower() or "depreciacao" in c["nome"].lower()) for c in plano_contas)
-    )
+    # ─── CUSTOS FIXOS TOTAIS ──────────────────────────────────────────────────
+    # Fixos = Custos indiretos + Despesas fixas
+    custos_fixos = custos_indiretos + despesas_fixas
     custos_fixos_desembolsaveis = custos_fixos - depreciacao
     
-    # Lucro desejado (30% dos custos fixos)
-    lucro_desejado = custos_fixos * 0.3
+    # ─── PONTOS DE EQUILÍBRIO ─────────────────────────────────────────────────
+    lucro_desejado = custos_fixos * 0.3  # 30% como meta padrão
     
-    # Pontos de Equilíbrio
-    pec = safe_div(custos_fixos, mc_perc / 100) if mc_perc > 0 else 0  # Contábil
-    pef = safe_div(custos_fixos_desembolsaveis, mc_perc / 100) if mc_perc > 0 else 0  # Financeiro
-    pee = safe_div((custos_fixos + lucro_desejado), mc_perc / 100) if mc_perc > 0 else 0  # Econômico
+    pec = safe_div(custos_fixos, mc_perc / 100) if mc_perc > 0 else 0
+    pef = safe_div(custos_fixos_desembolsaveis, mc_perc / 100) if mc_perc > 0 else 0
+    pee = safe_div((custos_fixos + lucro_desejado), mc_perc / 100) if mc_perc > 0 else 0
     
-    # Margem de Segurança
+    # ─── MARGEM DE SEGURANÇA ──────────────────────────────────────────────────
     ms_abs = rl - pec
     ms_perc = safe_div(ms_abs, rl) * 100 if rl > 0 else 0
-    qtd_total = sum(num(v["qtd"]) for v in vendas)
-    ms_qtd = qtd_total * (ms_perc / 100)
+    # Quantidade estimada (não há quantidade explícita no modelo simplificado)
+    qtd_total = 0
+    ms_qtd = 0
     
-    # Resultado Operacional - Absorção
+    # ─── RESULTADO POR ABSORÇÃO ───────────────────────────────────────────────
     cpv_absorcao = cpv_direto + custos_indiretos
     lb_absorcao = rl - cpv_absorcao
     lo_absorcao = lb_absorcao - despesas_operacionais
     ircsll_abs = lo_absorcao * 0.34 if lo_absorcao > 0 else 0
     ll_absorcao = lo_absorcao - ircsll_abs
     
-    # Resultado Operacional - Variável
+    # ─── RESULTADO POR VARIÁVEL ───────────────────────────────────────────────
     lo_variavel = mc - custos_fixos
     ircsll_var = lo_variavel * 0.34 if lo_variavel > 0 else 0
     ll_variavel = lo_variavel - ircsll_var
@@ -505,7 +536,7 @@ def calcular_indicadores(state):
         "rb": rb,
         "deducoes": deducoes,
         "deducoes_perc": deducoes_perc,
-        "deducoes_plano": deducoes_plano,
+        "deducoes_plano": 0,
         "comissoes": comissoes,
         "rl": rl,
         "cpv_direto": cpv_direto,
@@ -527,6 +558,9 @@ def calcular_indicadores(state):
         "cpv_absorcao": cpv_absorcao,
         "lb_absorcao": lb_absorcao,
         "despesas_operacionais": despesas_operacionais,
+        "despesas_fixas": despesas_fixas,
+        "despesas_variaveis": despesas_variaveis,
+        "despesas_semivariaveis": despesas_semivariaveis,
         "lo_absorcao": lo_absorcao,
         "ircsll_abs": ircsll_abs,
         "ll_absorcao": ll_absorcao,
@@ -1709,146 +1743,120 @@ def modulo_rateio():
                 )
 
 def modulo_vendas():
-    """Módulo: Vendas"""
-    st.header("🛒 Volume de Vendas")
+    """Módulo: Vendas - modelo simplificado de receita"""
+    st.header("🛒 Receita de Vendas")
     
     render_alert("""
-    Informe quantidade, preço unitário, custo unitário e percentual de impostos para cada produto.
-    As comissões sobre vendas são calculadas automaticamente.
+    Informe a <strong>Receita Bruta Total</strong> do período e a <strong>alíquota média 
+    de impostos sobre vendas</strong>. O sistema calculará automaticamente as deduções, 
+    comissões e a Receita Líquida.
+    <br><br>
+    💡 <em>Este é um modelo simplificado. Os custos e despesas são lançados no módulo 
+    <strong>💰 Lançamentos</strong>.</em>
     """)
     
-    # Comissão
-    col1, col2 = st.columns([1, 4])
+    # ─── Inicializa as chaves se não existirem ─────────────────────────────────
+    if "receita_bruta_total" not in st.session_state:
+        st.session_state.receita_bruta_total = 100000.0
+    
+    if "impostos_medio_perc" not in st.session_state:
+        st.session_state.impostos_medio_perc = 12.0
+    
+    if "comissao_perc" not in st.session_state:
+        st.session_state.comissao_perc = 5.0
+    
+    # ─── Formulário principal ──────────────────────────────────────────────────
+    col1, col2, col3 = st.columns(3)
+    
     with col1:
-        comissao = st.number_input(
-            "Comissão %",
-            value=float(st.session_state.comissao_perc),
-            step=0.5,
+        receita_bruta = st.number_input(
+            "Receita Bruta de Vendas (R$)",
+            value=float(st.session_state.receita_bruta_total),
             min_value=0.0,
-            max_value=100.0
+            step=1000.0,
+            format="%.2f",
+            key="input_receita_bruta",
+            help="Valor total das vendas no período, antes de impostos e comissões"
         )
-        st.session_state.comissao_perc = comissao
+        st.session_state.receita_bruta_total = receita_bruta
     
-    # Importar planilha
-    with st.expander("📥 Importar Vendas (XLSX/CSV)"):
-        uploaded_file = st.file_uploader(
-            "Arraste ou selecione uma planilha",
-            type=["xlsx", "xls", "csv"],
-            key="vendas_upload"
+    with col2:
+        impostos_medio = st.number_input(
+            "Impostos sobre Vendas (%)",
+            value=float(st.session_state.impostos_medio_perc),
+            min_value=0.0,
+            max_value=100.0,
+            step=0.5,
+            format="%.2f",
+            key="input_impostos_medio",
+            help="Alíquota média de ICMS, PIS, COFINS, ISS, etc."
         )
-        if uploaded_file:
-            try:
-                df = pd.read_excel(uploaded_file) if uploaded_file.name.endswith(('.xlsx', '.xls')) else pd.read_csv(uploaded_file)
-                
-                col_produto = next((c for c in df.columns if 'produto' in c.lower() or 'nome' in c.lower()), None)
-                if col_produto is None:
-                    st.error("Coluna 'Produto' não encontrada.")
-                else:
-                    col_qtd = next((c for c in df.columns if 'qtd' in c.lower() or 'quant' in c.lower()), None)
-                    col_preco = next((c for c in df.columns if 'preco' in c.lower() or 'valor' in c.lower()), None)
-                    col_custo = next((c for c in df.columns if 'custo' in c.lower()), None)
-                    col_imp = next((c for c in df.columns if 'impost' in c.lower() or 'tribut' in c.lower()), None)
-                    
-                    for _, row in df.iterrows():
-                        if pd.isna(row[col_produto]):
-                            continue
-                        produto_id = len(st.session_state.produtos) + 1000
-                        st.session_state.produtos.append({
-                            "id": produto_id,
-                            "nome": str(row[col_produto]),
-                            "unidade": "un"
-                        })
-                        st.session_state.vendas.append({
-                            "produto_id": produto_id,
-                            "qtd": float(row[col_qtd]) if col_qtd and not pd.isna(row[col_qtd]) else 0,
-                            "preco_unit": float(row[col_preco]) if col_preco and not pd.isna(row[col_preco]) else 0,
-                            "custo_unit": float(row[col_custo]) if col_custo and not pd.isna(row[col_custo]) else 0,
-                            "custo_direto": 0,
-                            "impostos": float(row[col_imp]) if col_imp and not pd.isna(row[col_imp]) else 0,
-                        })
-                    st.success("✅ Produtos importados com sucesso!")
-                    st.rerun()
-            except Exception as e:
-                st.error(f"Erro ao importar: {str(e)}")
+        st.session_state.impostos_medio_perc = impostos_medio
     
-    # Editor de vendas
-    df_vendas = pd.DataFrame([
-        {
-            "Produto": next((p["nome"] for p in st.session_state.produtos if p["id"] == v["produto_id"]), f"ID {v['produto_id']}"),
-            "Qtd": v["qtd"],
-            "Preço Unit.": v["preco_unit"],
-            "Custo Unit.": v["custo_unit"],
-            "Impostos %": v["impostos"],
-        }
-        for v in st.session_state.vendas
-    ])
+    with col3:
+        comissao_perc = st.number_input(
+            "Comissão sobre Vendas (%)",
+            value=float(st.session_state.comissao_perc),
+            min_value=0.0,
+            max_value=100.0,
+            step=0.5,
+            format="%.2f",
+            key="input_comissao_perc",
+            help="Percentual pago como comissão aos vendedores"
+        )
+        st.session_state.comissao_perc = comissao_perc
     
-    edited_df = st.data_editor(
-        df_vendas,
-        column_config={
-            "Produto": st.column_config.TextColumn("Produto", disabled=True),
-            "Qtd": st.column_config.NumberColumn("Quantidade", min_value=0, step=1),
-            "Preço Unit.": st.column_config.NumberColumn("Preço Unitário", min_value=0, step=0.01, format="R$ %.2f"),
-            "Custo Unit.": st.column_config.NumberColumn("Custo Unitário", min_value=0, step=0.01, format="R$ %.2f"),
-            "Impostos %": st.column_config.NumberColumn("Impostos (%)", min_value=0, max_value=100, step=0.1),
-        },
-        use_container_width=True,
-        num_rows="dynamic",
-        key="vendas_editor"
-    )
+    st.divider()
     
-    # Atualiza o estado com as edições
-    if not edited_df.equals(df_vendas):
-        for idx, row in edited_df.iterrows():
-            if idx < len(st.session_state.vendas):
-                v = st.session_state.vendas[idx]
-                v["qtd"] = float(row["Qtd"])
-                v["preco_unit"] = float(row["Preço Unit."])
-                v["custo_unit"] = float(row["Custo Unit."])
-                v["impostos"] = float(row["Impostos %"])
-        st.rerun()
+    # ─── KPIs calculados ───────────────────────────────────────────────────────
+    st.subheader("📊 Resumo da Receita")
     
-    # Adicionar novo produto
-    with st.expander("➕ Adicionar Produto"):
-        col1, col2, col3 = st.columns([2, 1, 1])
-        with col1:
-            novo_nome = st.text_input("Nome do produto", placeholder="Produto D")
-        with col2:
-            nova_unidade = st.selectbox("Unidade", ["un", "kg", "cx", "lt", "m", "m²", "par"])
-        with col3:
-            if st.button("Adicionar", use_container_width=True):
-                if novo_nome:
-                    produto_id = len(st.session_state.produtos) + 1000
-                    st.session_state.produtos.append({
-                        "id": produto_id,
-                        "nome": novo_nome,
-                        "unidade": nova_unidade
-                    })
-                    st.session_state.vendas.append({
-                        "produto_id": produto_id,
-                        "qtd": 0,
-                        "preco_unit": 0,
-                        "custo_unit": 0,
-                        "custo_direto": 0,
-                        "impostos": 0,
-                    })
-                    st.rerun()
+    deducoes = receita_bruta * impostos_medio / 100
+    comissoes = receita_bruta * comissao_perc / 100
+    receita_liquida = receita_bruta - deducoes - comissoes
+    margem_liq_perc = safe_div(receita_liquida, receita_bruta) * 100
     
-    # KPIs de vendas
-    indicadores = calcular_indicadores(st.session_state)
-    
-    st.subheader("📊 Resumo de Vendas")
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        render_kpi("Receita Bruta", fmtR(indicadores["rb"]), color="#3fb950")
+        render_kpi("Receita Bruta", fmtR(receita_bruta), color="#3fb950")
     with col2:
-        render_kpi("Impostos/Deduções", fmtR(indicadores["deducoes"]), color="#f85149")
+        render_kpi("(−) Impostos", fmtR(deducoes), 
+                   sub=f"{fmtP(impostos_medio)} s/ RB",
+                   color="#f85149")
     with col3:
-        render_kpi("Receita Líquida", fmtR(indicadores["rl"]), color="#58a6ff")
+        render_kpi("(−) Comissões", fmtR(comissoes),
+                   sub=f"{fmtP(comissao_perc)} s/ RB",
+                   color="#bc8cff")
     with col4:
-        render_kpi("Lucro Bruto", fmtR(indicadores["lb_absorcao"]), 
-                   sub=f"Margem: {fmtP(safe_div(indicadores['lb_absorcao'], indicadores['rl']) * 100)}",
-                   color="#39d353")
+        render_kpi("= Receita Líquida", fmtR(receita_liquida),
+                   sub=f"{fmtP(margem_liq_perc)} da RB",
+                   color="#58a6ff")
+    
+    # ─── Fórmula explicada ─────────────────────────────────────────────────────
+    with st.expander("📐 Como é calculado?"):
+        formula_html = (
+            "<div style='background:#1c2330;border:1px solid #30363d;border-radius:8px;"
+            "padding:14px 18px;font-family:IBM Plex Mono,monospace;font-size:13px;"
+            "color:#e6edf3;line-height:1.9;'>"
+            f"Receita Bruta .................................. <span style='color:#3fb950;'>{fmtR(receita_bruta)}</span><br>"
+            f"(−) Impostos ({fmtP(impostos_medio)}) ................ <span style='color:#f85149;'>−{fmtR(deducoes)}</span><br>"
+            f"(−) Comissões ({fmtP(comissao_perc)}) ............... <span style='color:#bc8cff;'>−{fmtR(comissoes)}</span><br>"
+            "<hr style='border:none;border-top:1px solid #30363d;margin:8px 0;'>"
+            f"(=) Receita Líquida ............................ <span style='color:#58a6ff;font-weight:700;'>{fmtR(receita_liquida)}</span>"
+            "</div>"
+            "<p style='margin-top:12px;color:#8d96a0;font-size:13px;'>"
+            "A <strong style='color:#e6edf3;'>Receita Líquida</strong> é a base para o cálculo "
+            "da Margem de Contribuição na DRE."
+            "</p>"
+        )
+        st.markdown(formula_html, unsafe_allow_html=True)
+    
+    render_alert(
+        "ℹ️ <strong>Próximo passo:</strong> vá até o módulo <strong>💰 Lançamentos</strong> "
+        "para registrar os custos diretos, custos indiretos e despesas do período. "
+        "Esses valores alimentarão automaticamente a DRE.",
+        type="info"
+    )
 
 def modulo_estoque():
     """Módulo: Estoque"""
@@ -1932,7 +1940,7 @@ def modulo_dre():
     
     col1, col2 = st.columns(2)
     
-    with col1:
+        with col1:
         st.subheader("📋 Custeio por Absorção")
         render_alert("""
         Todos os custos de produção (diretos + indiretos) são alocados ao produto.
@@ -1944,8 +1952,9 @@ def modulo_dre():
             ("Receita Bruta de Vendas", indicadores["rb"], "#3fb950", True),
             ("(−) Deduções e Impostos s/ Vendas", -indicadores["deducoes"], "#f85149", False),
             ("(−) Comissões s/ Vendas", -indicadores["comissoes"], "#f85149", False),
-            ("  Custos Diretos", -indicadores["cpv_direto"], "#e6edf3", False),
-            ("  Custos Indiretos Rateados", -indicadores["custos_indiretos"], "#e6edf3", False),
+            ("= Receita Líquida", indicadores["rl"], "#58a6ff", True),
+            ("(−) Custos Diretos (lançados)", -indicadores["cpv_direto"], "#e3b341", False),
+            ("(−) Custos Indiretos (lançados)", -indicadores["custos_indiretos"], "#d29922", False),
             ("= Lucro Bruto", indicadores["lb_absorcao"], "#39d353" if indicadores["lb_absorcao"] >= 0 else "#f85149", True),
             ("(−) Despesas Operacionais", -indicadores["despesas_operacionais"], "#f85149", False),
             ("= Resultado Operacional (EBIT)", indicadores["lo_absorcao"], "#3fb950" if indicadores["lo_absorcao"] >= 0 else "#f85149", True),
@@ -1979,7 +1988,7 @@ def modulo_dre():
             render_kpi("Margem Líquida", fmtP(safe_div(indicadores["ll_absorcao"], indicadores["rl"]) * 100),
                        color="#3fb950" if indicadores["ll_absorcao"] >= 0 else "#f85149")
     
-    with col2:
+        with col2:
         st.subheader("📋 Custeio Variável (Gerencial)")
         render_alert("""
         Separa custos fixos dos variáveis. Evidencia a <strong>Margem de Contribuição</strong>.
@@ -1992,11 +2001,13 @@ def modulo_dre():
             ("(−) Deduções e Impostos s/ Vendas", -indicadores["deducoes"], "#f85149", False),
             ("(−) Comissões s/ Vendas", -indicadores["comissoes"], "#f85149", False),
             ("= Receita Líquida", indicadores["rl"], "#58a6ff", True),
-            ("(−) Custos e Despesas Variáveis", -indicadores["custos_var"], "#e3b341", False),
-            ("  CPV Direto", -indicadores["cpv_direto"], "#e6edf3", False),
+            ("(−) Custos Diretos (lançados)", -indicadores["cpv_direto"], "#e3b341", False),
+            ("(−) Despesas Variáveis + Semivariáveis", 
+             -(indicadores["despesas_variaveis"] + indicadores["despesas_semivariaveis"]), "#e3b341", False),
             ("= Margem de Contribuição (MC)", indicadores["mc"], "#39d353" if indicadores["mc"] >= 0 else "#f85149", True),
             ("  MC %", indicadores["mc_perc"], "#8d96a0", False),
-            ("(−) Custos Fixos (Indiretos + Desp. Fixas)", -indicadores["custos_fixos"], "#f85149", True),
+            ("(−) Custos Indiretos (lançados)", -indicadores["custos_indiretos"], "#f85149", False),
+            ("(−) Despesas Fixas (lançadas)", -indicadores["despesas_fixas"], "#f85149", False),
             ("= Resultado Operacional", indicadores["lo_variavel"], "#3fb950" if indicadores["lo_variavel"] >= 0 else "#f85149", True),
             ("(−) IR/CSLL (34%)", -indicadores["ircsll_var"], "#f85149", False),
             ("= Lucro Líquido", indicadores["ll_variavel"], "#3fb950" if indicadores["ll_variavel"] >= 0 else "#f85149", True),
@@ -2154,32 +2165,49 @@ def modulo_cvl():
                    sub="Unidades acima do PE",
                    color="#39d353" if indicadores["ms_perc"] >= 0 else "#f85149")
     
-    # Gráfico do PE
+        # Gráfico do PE
     st.subheader("📈 Visualização do Ponto de Equilíbrio")
     
-    volumes = np.linspace(0, max(indicadores["qtd_total"] * 2, 1000), 100)
-    receita_sim = [v * (indicadores["rl"] / indicadores["qtd_total"]) for v in volumes] if indicadores["qtd_total"] > 0 else [0] * 100
-    custo_total = [v * (indicadores["cpv_direto"] / indicadores["qtd_total"]) + indicadores["custos_fixos"] for v in volumes] if indicadores["qtd_total"] > 0 else [0] * 100
-    
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=volumes, y=receita_sim, name="Receita Total", line=dict(color="#3fb950")))
-    fig.add_trace(go.Scatter(x=volumes, y=custo_total, name="Custo Total", line=dict(color="#f85149")))
-    
-    pe_qtd = safe_div(indicadores["pec"], indicadores["rl"] / indicadores["qtd_total"]) if indicadores["qtd_total"] > 0 else 0
-    fig.add_vline(x=pe_qtd, line_dash="dash", line_color="#58a6ff")
-    fig.add_annotation(x=pe_qtd, y=max(receita_sim) * 0.8, text=f"PE: {fmt(pe_qtd, 0)} un", showarrow=True, arrowhead=1)
-    
-    fig.update_layout(
-        title="Análise Custo-Volume-Lucro",
-        xaxis_title="Quantidade Vendida (un)",
-        yaxis_title="Valor (R$)",
-        plot_bgcolor="#161b22",
-        paper_bgcolor="#161b22",
-        font_color="#e6edf3",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-    )
-    
-    st.plotly_chart(fig, use_container_width=True)
+    if indicadores["rl"] > 0 and indicadores["pec"] > 0:
+        # Escala do eixo X = Receita Líquida de 0 até 2x o PE
+        max_receita = max(indicadores["rl"] * 1.5, indicadores["pec"] * 2)
+        receitas = np.linspace(0, max_receita, 100)
+        
+        # MC proporcional
+        mc_perc_dec = indicadores["mc_perc"] / 100
+        mc_sim = [r * mc_perc_dec for r in receitas]
+        custo_fixo = [indicadores["custos_fixos"]] * 100
+        custo_total = [cf + (r - r * mc_perc_dec) * 0 for cf, r in zip(custo_fixo, receitas)]
+        # Linha de lucro = MC - Custos Fixos
+        lucro = [mc - cf for mc, cf in zip(mc_sim, custo_fixo)]
+        
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=receitas, y=mc_sim, name="Margem de Contribuição", line=dict(color="#39d353")))
+        fig.add_trace(go.Scatter(x=receitas, y=custo_fixo, name="Custos Fixos", line=dict(color="#f85149")))
+        fig.add_trace(go.Scatter(x=receitas, y=lucro, name="Resultado", line=dict(color="#58a6ff"), line_dash="dash"))
+        
+        # Linha vertical no PE
+        fig.add_vline(x=indicadores["pec"], line_dash="dot", line_color="#58a6ff",
+                      annotation_text=f"PE: {fmtR(indicadores['pec'])}",
+                      annotation_position="top")
+        
+        # Linha vertical na RL atual
+        fig.add_vline(x=indicadores["rl"], line_dash="dot", line_color="#3fb950",
+                      annotation_text=f"RL: {fmtR(indicadores['rl'])}",
+                      annotation_position="bottom")
+        
+        fig.update_layout(
+            title="Análise Custo-Volume-Lucro (modelo simplificado)",
+            xaxis_title="Receita Líquida (R$)",
+            yaxis_title="Valor (R$)",
+            plot_bgcolor="#161b22",
+            paper_bgcolor="#161b22",
+            font_color="#e6edf3",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("Informe uma receita e custos fixos válidos para visualizar o gráfico.")
 
 def modulo_precificacao():
     """Módulo: Precificação"""
@@ -2743,6 +2771,8 @@ def exportar_estado():
         "plano_contas": st.session_state.get("plano_contas", []),
         "produtos": st.session_state.get("produtos", []),
         "vendas": st.session_state.get("vendas", []),
+        "receita_bruta_total": st.session_state.get("receita_bruta_total", 0),
+        "impostos_medio_perc": st.session_state.get("impostos_medio_perc", 0),
         "despesas": st.session_state.get("despesas", []),
         "estoque_inicial": st.session_state.get("estoque_inicial", []),
         "estoque_final": st.session_state.get("estoque_final", []),
@@ -2777,7 +2807,8 @@ def importar_estado(conteudo_json):
         "plano_contas", "produtos", "vendas", "despesas",
         "estoque_inicial", "estoque_final", "producao_mes",
         "comissao_perc", "criterios_rateio", "pesos_rateio",
-        "laudo",
+        "laudo", "lancamentos",
+        "receita_bruta_total", "impostos_medio_perc",   # ← NOVAS
     ]
     for chave in chaves:
         if chave in estado:
