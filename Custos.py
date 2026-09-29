@@ -673,7 +673,6 @@ def modulo_plano_contas():
             """)
     
     # ─── SEÇÃO: IMPORTAR PLANILHA ───────────────────────────────────────────────
-        # ─── SEÇÃO: IMPORTAR PLANILHA ───────────────────────────────────────────────
     st.subheader("📤 Importar Planilha Preenchida")
     
     with st.expander("📥 Importar Plano de Contas (XLSX/CSV)", expanded=True):
@@ -700,11 +699,15 @@ def modulo_plano_contas():
                 type="info"
             )
         
+        # Controle de versão do uploader para poder resetá-lo
+        if "uploader_version" not in st.session_state:
+            st.session_state.uploader_version = 0
+        
         # Passo 2: Upload do arquivo
         uploaded_file = st.file_uploader(
             "Arraste ou selecione uma planilha preenchida",
             type=["xlsx", "xls", "csv"],
-            key="plano_upload",
+            key=f"plano_upload_{st.session_state.uploader_version}",
             help="Use a planilha modelo como base para preencher seus dados"
         )
         
@@ -732,14 +735,13 @@ def modulo_plano_contas():
                 else:
                     # Processa as linhas da planilha
                     novas_contas = []
-                    erros = []
                     
                     for i, row in df.iterrows():
                         if pd.isna(row[col_nome]) or str(row[col_nome]).strip() == "":
                             continue
                         
                         conta = {
-                            "id": None,  # Definido depois
+                            "id": None,
                             "nome": str(row[col_nome]).strip(),
                             "tipo": "despesa",
                             "natureza": "---",
@@ -822,33 +824,35 @@ def modulo_plano_contas():
                         with col_btn1:
                             if st.button("✅ Confirmar Importação", type="primary", use_container_width=True):
                                 if modo_importacao == "substituir":
-                                    # Substitui tudo
                                     for i, c in enumerate(novas_contas):
                                         c["id"] = i + 1
                                     st.session_state.plano_contas = novas_contas
-                                    # Limpa despesas vinculadas a contas antigas
                                     st.session_state.despesas = []
-                                    st.success(f"🔄 Plano substituído: {len(novas_contas)} conta(s) carregada(s).")
+                                    st.session_state.mensagem_importacao = f"🔄 Plano substituído: {len(novas_contas)} conta(s) carregada(s)."
                                 else:
-                                    # Adiciona ao existente
                                     for i, c in enumerate(novas_contas):
                                         c["id"] = len(st.session_state.plano_contas) + i + 1000
                                     st.session_state.plano_contas.extend(novas_contas)
-                                    st.success(f"➕ {len(novas_contas)} conta(s) adicionada(s) ao plano atual.")
+                                    st.session_state.mensagem_importacao = f"➕ {len(novas_contas)} conta(s) adicionada(s) ao plano atual."
                                 
-                                # Limpa o uploader
-                                st.session_state.plano_upload = None
+                                # Incrementa versão do uploader para limpar
+                                st.session_state.uploader_version += 1
                                 st.rerun()
                         
                         with col_btn2:
                             if st.button("❌ Cancelar", use_container_width=True):
-                                st.session_state.plano_upload = None
+                                st.session_state.uploader_version += 1
                                 st.rerun()
                     else:
                         st.warning("⚠️ Nenhuma linha válida encontrada na planilha.")
             except Exception as e:
                 st.error(f"❌ Erro ao ler a planilha: {str(e)}")
-    
+        
+        # Mostra mensagem de sucesso (após rerun)
+        if st.session_state.get("mensagem_importacao"):
+            st.success(st.session_state.mensagem_importacao)
+            st.session_state.mensagem_importacao = None
+            
     # ─── SEÇÃO: EDITOR DO PLANO DE CONTAS ───────────────────────────────────────
     st.subheader("📝 Editor do Plano de Contas")
     
