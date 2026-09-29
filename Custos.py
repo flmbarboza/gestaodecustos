@@ -283,8 +283,7 @@ def get_initial_state():
         "periodo": "Janeiro/2026",
         "regime": "Lucro Real",
         
-        # Plano de Contas - ESTRUTURA CORRIGIDA
-        # Removido "codigo" - agora apenas: nome, tipo, natureza, comportamento
+        # Plano de Contas - ESTRUTURA BASE
         # Tipos de gasto: receita, custo_direto, custo_indireto, despesa, investimento, perda
         # Natureza (para custos): direto, indireto
         # Comportamento: fixo, variavel, semivariavel, ---
@@ -632,43 +631,99 @@ def modulo_plano_contas():
     - <strong>Comportamento</strong>: Fixo, Variável ou Semivariável
     """)
     
-    # Importar planilha
-    with st.expander("📥 Importar Plano de Contas (XLSX/CSV)"):
+    # ─── SEÇÃO: DOWNLOAD DA PLANILHA MODELO ─────────────────────────────────────
+    st.subheader("📥 Planilha Modelo")
+    
+    col1, col2, col3 = st.columns([2, 1, 1])
+    with col1:
+        st.markdown("""
+        Baixe a planilha modelo para preencher seu plano de contas. 
+        Ela contém **4 abas**: Plano de Contas, Instruções, Valores Permitidos e Exemplos.
+        """)
+    with col2:
+        planilha_modelo = gerar_planilha_modelo()
+        st.download_button(
+            label="⬇️ Baixar Planilha Modelo",
+            data=planilha_modelo,
+            file_name="modelo_plano_de_contas.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
+        )
+    with col3:
+        with st.popover("ℹ️ Valores Permitidos"):
+            st.markdown("""
+            **Tipo:**
+            - `receita`
+            - `custo_direto`
+            - `custo_indireto`
+            - `despesa`
+            - `investimento`
+            - `perda`
+            
+            **Natureza (apenas para custos):**
+            - `direto`
+            - `indireto`
+            - `---` (não aplicável)
+            
+            **Comportamento:**
+            - `fixo`
+            - `variavel`
+            - `semivariavel`
+            - `---` (não aplicável)
+            """)
+    
+    # ─── SEÇÃO: IMPORTAR PLANILHA ───────────────────────────────────────────────
+    st.subheader("📤 Importar Planilha Preenchida")
+    
+    with st.expander("📥 Importar Plano de Contas (XLSX/CSV)", expanded=False):
         uploaded_file = st.file_uploader(
-            "Arraste ou selecione uma planilha",
+            "Arraste ou selecione uma planilha preenchida",
             type=["xlsx", "xls", "csv"],
-            key="plano_upload"
+            key="plano_upload",
+            help="Use a planilha modelo como base para preencher seus dados"
         )
         if uploaded_file:
             try:
-                df = pd.read_excel(uploaded_file) if uploaded_file.name.endswith(('.xlsx', '.xls')) else pd.read_csv(uploaded_file)
-                
-                col_nome = next((c for c in df.columns if 'nome' in c.lower() or 'conta' in c.lower()), None)
-                if col_nome is None:
-                    st.error("Coluna 'Nome' não encontrada. Verifique o cabeçalho da planilha.")
+                # Lê o arquivo (primeira aba se for Excel)
+                if uploaded_file.name.endswith(('.xlsx', '.xls')):
+                    df = pd.read_excel(uploaded_file, sheet_name=0)
                 else:
-                    col_tipo = next((c for c in df.columns if 'tipo' in c.lower()), None)
-                    col_natureza = next((c for c in df.columns if 'natureza' in c.lower()), None)
-                    col_comportamento = next((c for c in df.columns if 'comportamento' in c.lower()), None)
-                    
+                    df = pd.read_csv(uploaded_file)
+                
+                # Normaliza nomes de colunas
+                df.columns = [str(c).strip() for c in df.columns]
+                cols_lower = {c.lower(): c for c in df.columns}
+                
+                # Localiza colunas por variação de nome
+                col_nome = cols_lower.get('nome') or cols_lower.get('conta') or cols_lower.get('nome da conta')
+                col_tipo = cols_lower.get('tipo') or cols_lower.get('tipo de gasto')
+                col_natureza = cols_lower.get('natureza') or cols_lower.get('natureza (custos)')
+                col_comportamento = cols_lower.get('comportamento')
+                
+                if col_nome is None:
+                    st.error("❌ Coluna 'Nome' não encontrada. Use a planilha modelo como base.")
+                else:
                     novas_contas = []
                     for _, row in df.iterrows():
-                        if pd.isna(row[col_nome]):
+                        if pd.isna(row[col_nome]) or str(row[col_nome]).strip() == "":
                             continue
+                        
                         conta = {
                             "id": len(st.session_state.plano_contas) + len(novas_contas) + 1000,
-                            "nome": str(row[col_nome]),
+                            "nome": str(row[col_nome]).strip(),
                             "tipo": "despesa",
                             "natureza": "---",
                             "comportamento": "---"
                         }
+                        
+                        # Mapeia Tipo
                         if col_tipo and not pd.isna(row[col_tipo]):
-                            tipo = str(row[col_tipo]).lower()
+                            tipo = str(row[col_tipo]).lower().strip()
                             if "receita" in tipo:
                                 conta["tipo"] = "receita"
-                            elif "custo_direto" in tipo or "direto" in tipo:
+                            elif "custo_direto" in tipo or tipo == "direto":
                                 conta["tipo"] = "custo_direto"
-                            elif "custo_indireto" in tipo or "indireto" in tipo:
+                            elif "custo_indireto" in tipo or tipo == "indireto":
                                 conta["tipo"] = "custo_indireto"
                             elif "investimento" in tipo:
                                 conta["tipo"] = "investimento"
@@ -676,31 +731,40 @@ def modulo_plano_contas():
                                 conta["tipo"] = "perda"
                             else:
                                 conta["tipo"] = "despesa"
+                        
+                        # Mapeia Natureza
                         if col_natureza and not pd.isna(row[col_natureza]):
-                            nat = str(row[col_natureza]).lower()
-                            if "direto" in nat:
+                            nat = str(row[col_natureza]).lower().strip()
+                            if "direto" in nat and "indireto" not in nat:
                                 conta["natureza"] = "direto"
                             elif "indireto" in nat:
                                 conta["natureza"] = "indireto"
+                        
+                        # Mapeia Comportamento
                         if col_comportamento and not pd.isna(row[col_comportamento]):
-                            comp = str(row[col_comportamento]).lower()
-                            if "fixo" in comp:
-                                conta["comportamento"] = "fixo"
-                            elif "variavel" in comp:
-                                conta["comportamento"] = "variavel"
-                            elif "semivariavel" in comp or "misto" in comp:
+                            comp = str(row[col_comportamento]).lower().strip()
+                            if "semivariavel" in comp or "semivariável" in comp or "misto" in comp:
                                 conta["comportamento"] = "semivariavel"
+                            elif "variavel" in comp or "variável" in comp:
+                                conta["comportamento"] = "variavel"
+                            elif "fixo" in comp:
+                                conta["comportamento"] = "fixo"
+                        
                         novas_contas.append(conta)
                     
                     if novas_contas:
                         st.session_state.plano_contas.extend(novas_contas)
                         st.success(f"✅ {len(novas_contas)} conta(s) importada(s) com sucesso!")
+                        st.rerun()
+                    else:
+                        st.warning("⚠️ Nenhuma linha válida encontrada na planilha.")
             except Exception as e:
-                st.error(f"Erro ao importar: {str(e)}")
+                st.error(f"❌ Erro ao importar: {str(e)}")
     
-    # Editor do Plano de Contas
+    # ─── SEÇÃO: EDITOR DO PLANO DE CONTAS ───────────────────────────────────────
+    st.subheader("📝 Editor do Plano de Contas")
+    
     df_contas = pd.DataFrame(st.session_state.plano_contas)
-    # Garante que as colunas existem
     colunas = ["nome", "tipo", "natureza", "comportamento"]
     for col in colunas:
         if col not in df_contas.columns:
@@ -710,11 +774,12 @@ def modulo_plano_contas():
     edited_df = st.data_editor(
         df_contas,
         column_config={
-            "nome": st.column_config.TextColumn("Nome da Conta", width="large"),
+            "nome": st.column_config.TextColumn("Nome da Conta", width="large", required=True),
             "tipo": st.column_config.SelectboxColumn(
                 "Tipo de Gasto",
                 options=["receita", "custo_direto", "custo_indireto", "despesa", "investimento", "perda"],
-                width="medium"
+                width="medium",
+                required=True
             ),
             "natureza": st.column_config.SelectboxColumn(
                 "Natureza (Custos)",
@@ -746,14 +811,16 @@ def modulo_plano_contas():
             })
         st.session_state.plano_contas = novas_contas
     
-    # Adicionar nova conta
+    # ─── SEÇÃO: ADICIONAR CONTA MANUALMENTE ─────────────────────────────────────
     with st.expander("➕ Adicionar Nova Conta"):
         col1, col2, col3 = st.columns([2, 1, 1])
         with col1:
             novo_nome = st.text_input("Nome da Conta", placeholder="Ex: Seguros da Fábrica")
         with col2:
-            novo_tipo = st.selectbox("Tipo de Gasto", 
-                ["receita", "custo_direto", "custo_indireto", "despesa", "investimento", "perda"])
+            novo_tipo = st.selectbox(
+                "Tipo de Gasto",
+                ["receita", "custo_direto", "custo_indireto", "despesa", "investimento", "perda"]
+            )
         with col3:
             nova_natureza = st.selectbox("Natureza", ["---", "direto", "indireto"])
         
@@ -773,6 +840,90 @@ def modulo_plano_contas():
                 st.rerun()
             else:
                 st.warning("Preencha pelo menos o nome da conta.")
+    
+    # ─── SEÇÃO: RESUMO DO PLANO DE CONTAS ───────────────────────────────────────
+    if st.session_state.plano_contas:
+        st.subheader("📊 Resumo do Plano de Contas")
+        df_resumo = pd.DataFrame(st.session_state.plano_contas)
+        
+        col1, col2, col3, col4, col5, col6 = st.columns(6)
+        with col1:
+            n_receitas = len(df_resumo[df_resumo["tipo"] == "receita"])
+            render_kpi("Receitas", n_receitas, color="#3fb950")
+        with col2:
+            n_cd = len(df_resumo[df_resumo["tipo"] == "custo_direto"])
+            render_kpi("Custos Diretos", n_cd, color="#e3b341")
+        with col3:
+            n_ci = len(df_resumo[df_resumo["tipo"] == "custo_indireto"])
+            render_kpi("Custos Indiretos", n_ci, color="#d29922")
+        with col4:
+            n_desp = len(df_resumo[df_resumo["tipo"] == "despesa"])
+            render_kpi("Despesas", n_desp, color="#f85149")
+        with col5:
+            n_inv = len(df_resumo[df_resumo["tipo"] == "investimento"])
+            render_kpi("Investimentos", n_inv, color="#58a6ff")
+        with col6:
+            n_perd = len(df_resumo[df_resumo["tipo"] == "perda"])
+            render_kpi("Perdas", n_perd, color="#bc8cff")
+
+def gerar_planilha_modelo():
+    """Gera uma planilha modelo em Excel com exemplo e instruções"""
+    output = io.BytesIO()
+    
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        # Aba 1: Modelo (para preenchimento)
+        df_modelo = pd.DataFrame([
+            {"Nome": "Receita Bruta de Vendas", "Tipo": "receita", "Natureza": "---", "Comportamento": "---"},
+            {"Nome": "Deduções de Vendas", "Tipo": "receita", "Natureza": "---", "Comportamento": "---"},
+            {"Nome": "Matéria-Prima Consumida", "Tipo": "custo_direto", "Natureza": "direto", "Comportamento": "variavel"},
+            {"Nome": "Material de Embalagem", "Tipo": "custo_direto", "Natureza": "direto", "Comportamento": "variavel"},
+            {"Nome": "Mão de Obra Direta", "Tipo": "custo_direto", "Natureza": "direto", "Comportamento": "variavel"},
+            {"Nome": "Aluguel da Fábrica", "Tipo": "custo_indireto", "Natureza": "indireto", "Comportamento": "fixo"},
+            {"Nome": "Depreciação de Máquinas", "Tipo": "custo_indireto", "Natureza": "indireto", "Comportamento": "fixo"},
+            {"Nome": "Salários Administrativos", "Tipo": "despesa", "Natureza": "---", "Comportamento": "fixo"},
+            {"Nome": "Comissões sobre Vendas", "Tipo": "despesa", "Natureza": "---", "Comportamento": "variavel"},
+            {"Nome": "Aquisição de Máquinas", "Tipo": "investimento", "Natureza": "---", "Comportamento": "---"},
+            {"Nome": "Perdas com Mercadorias", "Tipo": "perda", "Natureza": "---", "Comportamento": "---"},
+        ])
+        df_modelo.to_excel(writer, sheet_name="Plano de Contas", index=False)
+        
+        # Aba 2: Instruções
+        df_instrucoes = pd.DataFrame([
+            {"Coluna": "Nome", "Descrição": "Nome descritivo da conta (obrigatório)", "Exemplo": "Matéria-Prima Consumida"},
+            {"Coluna": "Tipo", "Descrição": "Categoria do gasto (obrigatório)", "Exemplo": "custo_direto"},
+            {"Coluna": "Natureza", "Descrição": "Apenas para custos (diretos ou indiretos)", "Exemplo": "direto"},
+            {"Coluna": "Comportamento", "Descrição": "Fixo, Variável ou Semivariável", "Exemplo": "variavel"},
+        ])
+        df_instrucoes.to_excel(writer, sheet_name="Instruções", index=False)
+        
+        # Aba 3: Valores Permitidos
+        df_valores = pd.DataFrame([
+            {"Coluna": "Tipo", "Valores Permitidos": "receita | custo_direto | custo_indireto | despesa | investimento | perda"},
+            {"Coluna": "Natureza", "Valores Permitidos": "--- | direto | indireto"},
+            {"Coluna": "Comportamento", "Valores Permitidos": "--- | fixo | variavel | semivariavel"},
+        ])
+        df_valores.to_excel(writer, sheet_name="Valores Permitidos", index=False)
+        
+        # Aba 4: Exemplos Preenchidos
+        df_exemplos = pd.DataFrame([
+            {"Nome": "Receita Bruta de Vendas", "Tipo": "receita", "Natureza": "---", "Comportamento": "---"},
+            {"Nome": "Matéria-Prima", "Tipo": "custo_direto", "Natureza": "direto", "Comportamento": "variavel"},
+            {"Nome": "Aluguel da Fábrica", "Tipo": "custo_indireto", "Natureza": "indireto", "Comportamento": "fixo"},
+            {"Nome": "Salários Administrativos", "Tipo": "despesa", "Natureza": "---", "Comportamento": "fixo"},
+            {"Nome": "Comissões sobre Vendas", "Tipo": "despesa", "Natureza": "---", "Comportamento": "variavel"},
+            {"Nome": "Aquisição de Máquinas", "Tipo": "investimento", "Natureza": "---", "Comportamento": "---"},
+        ])
+        df_exemplos.to_excel(writer, sheet_name="Exemplos", index=False)
+        
+        # Ajusta largura das colunas
+        for sheet_name in writer.sheets:
+            worksheet = writer.sheets[sheet_name]
+            worksheet.column_dimensions['A'].width = 35
+            worksheet.column_dimensions['B'].width = 20
+            worksheet.column_dimensions['C'].width = 15
+            worksheet.column_dimensions['D'].width = 18
+    
+    return output.getvalue()
 
 def modulo_rateio():
     """Módulo: Critérios de Rateio - APENAS PARA CONTAS INDIRETAS"""
