@@ -889,14 +889,20 @@ def modulo_plano_contas():
             
     # ─── SEÇÃO: EDITOR DO PLANO DE CONTAS ───────────────────────────────────────
     st.subheader("📝 Editor do Plano de Contas")
-    
+
+    # Garante contador de IDs único
+    if "prox_id_conta" not in st.session_state:
+        ids_existentes = [c["id"] for c in st.session_state.plano_contas if isinstance(c.get("id"), int)]
+        st.session_state.prox_id_conta = (max(ids_existentes) + 1) if ids_existentes else 1
+
+    # Monta o DataFrame na ordem canônica
     df_contas = pd.DataFrame(st.session_state.plano_contas)
     colunas = ["nome", "tipo", "natureza", "comportamento"]
     for col in colunas:
         if col not in df_contas.columns:
             df_contas[col] = "---"
-    df_contas = df_contas[colunas]
-    
+    df_contas = df_contas[colunas].reset_index(drop=True)
+
     edited_df = st.data_editor(
         df_contas,
         column_config={
@@ -905,37 +911,61 @@ def modulo_plano_contas():
                 "Tipo de Gasto",
                 options=["receita", "custo_direto", "custo_indireto", "despesa", "investimento", "perda"],
                 width="medium",
-                required=True
+                required=True,
             ),
             "natureza": st.column_config.SelectboxColumn(
                 "Natureza (Custos)",
                 options=["---", "direto", "indireto"],
-                width="medium"
+                width="medium",
             ),
             "comportamento": st.column_config.SelectboxColumn(
                 "Comportamento",
                 options=["---", "fixo", "variavel", "semivariavel"],
-                width="medium"
+                width="medium",
             ),
         },
         use_container_width=True,
         num_rows="dynamic",
-        key="plano_contas_editor"
+        key="plano_contas_editor",
     )
-    
-    # Atualiza o estado com as edições
-    if not edited_df.equals(df_contas):
-        novas_contas = []
-        for idx, row in edited_df.iterrows():
-            original = st.session_state.plano_contas[idx] if idx < len(st.session_state.plano_contas) else None
-            novas_contas.append({
-                "id": original["id"] if original else idx + 1000,
+    edited_df = edited_df.reset_index(drop=True)
+
+    # ─── Sincronização robusta: compara com o estado atual e aplica ───────────
+    # Normaliza ambos os lados para comparação
+    def _normaliza(df):
+        df = df.copy()
+        for c in colunas:
+            df[c] = df[c].fillna("---").astype(str)
+        return df[colunas]
+
+    atual_norm = _normaliza(df_contas)
+    edited_norm = _normaliza(edited_df)
+
+    if not atual_norm.equals(edited_norm):
+        # Reconstrói a lista preservando IDs por posição quando possível,
+        # e gerando novos IDs para linhas adicionadas.
+        nova_lista = []
+        n_original = len(st.session_state.plano_contas)
+
+        for i, row in edited_df.iterrows():
+            if i < n_original:
+                # Linha existente: preserva o ID original
+                conta_id = st.session_state.plano_contas[i]["id"]
+            else:
+                # Linha nova: gera ID único
+                conta_id = st.session_state.prox_id_conta
+                st.session_state.prox_id_conta += 1
+
+            nova_lista.append({
+                "id": conta_id,
                 "nome": row["nome"],
                 "tipo": row["tipo"],
                 "natureza": row["natureza"],
                 "comportamento": row["comportamento"],
             })
-        st.session_state.plano_contas = novas_contas
+
+        st.session_state.plano_contas = nova_lista
+        st.rerun()
     
     # ─── SEÇÃO: ADICIONAR CONTA MANUALMENTE ─────────────────────────────────────
     with st.expander("➕ Adicionar Nova Conta"):
