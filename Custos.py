@@ -558,7 +558,6 @@ def calcular_indicadores(state):
     # (semivariáveis foram para o lado FIXO)
     custos_var = (
         custos_variaveis
-        + comissoes
         + despesas_variaveis
     )
     mc = rl - custos_var
