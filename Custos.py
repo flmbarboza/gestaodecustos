@@ -485,19 +485,19 @@ def calcular_indicadores(state):
         num(lancamentos.get(c["id"], 0))
         for c in plano_contas
         if c["tipo"] == "despesa" and c.get("comportamento") == "fixo"
-        and not _is_conta_financeira(c)
+        and not is_conta_financeira(c)
     )
     despesas_variaveis = sum(
         num(lancamentos.get(c["id"], 0))
         for c in plano_contas
         if c["tipo"] == "despesa" and c.get("comportamento") == "variavel"
-        and not _is_conta_financeira(c)
+        and not is_conta_financeira(c)
     )
     despesas_semivariaveis = sum(
         num(lancamentos.get(c["id"], 0))
         for c in plano_contas
         if c["tipo"] == "despesa" and c.get("comportamento") == "semivariavel"
-        and not _is_conta_financeira(c)
+        and not is_conta_financeira(c)
     )
     
     # Despesas financeiras (separadas)
