@@ -499,6 +499,12 @@ def calcular_indicadores(state):
         if c["tipo"] == "despesa" and c.get("comportamento") == "semivariavel"
         and not is_conta_financeira(c)
     )
+    # Perdas (anormais)
+    perdas = sum(
+        num(lancamentos.get(c["id"], 0))
+        for c in plano_contas
+        if c["tipo"] == "perda"
+    )
     
     # Despesas financeiras (separadas)
     despesas_financeiras = sum(
@@ -507,7 +513,7 @@ def calcular_indicadores(state):
         if c["tipo"] == "despesa" and is_conta_financeira(c)
     )
     
-    # Total de despesas OPERACIONAIS (sem financeiras)
+    # Total de despesas OPERACIONAIS (sem financeiras ou outras)
     despesas_operacionais = despesas_fixas + despesas_variaveis + despesas_semivariaveis
     
     # ─── DEPRECIAÇÃO (para PE Financeiro) ─────────────────────────────────────
@@ -546,13 +552,13 @@ def calcular_indicadores(state):
     cpv_absorcao = cpv_direto + custos_indiretos
     lb_absorcao = rl - cpv_absorcao
     lo_absorcao = lb_absorcao - despesas_operacionais
-    resultado_antes_ir = lo_absorcao - despesas_financeiras
+    resultado_antes_ir = lo_absorcao - despesas_financeiras - perdas
     ircsll_abs = lo_absorcao * 0.34 if lo_absorcao > 0 else 0
     ll_absorcao = lo_absorcao - ircsll_abs
     
     # ─── RESULTADO POR VARIÁVEL ───────────────────────────────────────────────
     lo_variavel = mc - custos_fixos
-    resultado_antes_ir_var = lo_variavel - despesas_financeiras
+    resultado_antes_ir_var = lo_variavel - despesas_financeiras - perdas
     ircsll_var = resultado_antes_ir_var * 0.34 if resultado_antes_ir_var > 0 else 0
     ll_variavel = resultado_antes_ir_var - ircsll_var    
     return {
@@ -581,6 +587,7 @@ def calcular_indicadores(state):
         "cpv_absorcao": cpv_absorcao,
         "lb_absorcao": lb_absorcao,
         "despesas_operacionais": despesas_operacionais,
+        "perdas": perdas,
         "despesas_fixas": despesas_fixas,
         "despesas_variaveis": despesas_variaveis,
         "despesas_semivariaveis": despesas_semivariaveis,
@@ -2015,6 +2022,7 @@ def modulo_dre():
             ("(−) Despesas Operacionais", -indicadores["despesas_operacionais"], "#f85149", False),
             ("= Resultado Operacional (EBIT)", indicadores["lo_absorcao"], "#3fb950" if indicadores["lo_absorcao"] >= 0 else "#f85149", True),
             ("(−) Despesas Financeiras", -indicadores["despesas_financeiras"], "#f85149", False),
+            ("(−) Outras Despesas", -indicadores["perdas"], "#bc8cff", False),
             ("(−) IR/CSLL (34%)", -indicadores["ircsll_abs"], "#f85149", False),
             ("= Lucro Líquido", indicadores["ll_absorcao"], "#3fb950" if indicadores["ll_absorcao"] >= 0 else "#f85149", True),
         ]
@@ -2067,6 +2075,7 @@ def modulo_dre():
             ("(−) Despesas Fixas (lançadas)", -indicadores["despesas_fixas"], "#f85149", False),
             ("= Resultado Operacional", indicadores["lo_variavel"], "#3fb950" if indicadores["lo_variavel"] >= 0 else "#f85149", True),
             ("(−) Despesas Financeiras", -indicadores["despesas_financeiras"], "#f85149", False),
+            ("(−) Outras Despesas", -indicadores["perdas"], "#bc8cff", False),
             ("(−) IR/CSLL (34%)", -indicadores["ircsll_var"], "#f85149", False),
             ("= Lucro Líquido", indicadores["ll_variavel"], "#3fb950" if indicadores["ll_variavel"] >= 0 else "#f85149", True),
         ]
