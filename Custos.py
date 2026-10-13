@@ -465,22 +465,26 @@ def calcular_indicadores(state):
     comissoes = rb * comissao_perc / 100
     rl = rb - deducoes - comissoes  # Receita Líquida
     
-    # ─── CUSTOS E DESPESAS (dos lançamentos) ──────────────────────────────────
-    # Custos diretos
+    # ═══════════════════════════════════════════════════════════════════════════
+    # SEPARAÇÃO DOS GASTOS
+    # - Para a ABSORÇÃO: classifica por TIPO (custo_direto, custo_indireto, despesa)
+    # - Para o VARIÁVEL: classifica por COMPORTAMENTO (variavel, fixo, semivariavel)
+    # ═══════════════════════════════════════════════════════════════════════════
+
+    # ─── VISÃO ABSORÇÃO (por tipo) ────────────────────────────────────────────
     cpv_direto = sum(
         num(lancamentos.get(c["id"], 0))
         for c in plano_contas
         if c["tipo"] == "custo_direto"
     )
-    
-    # Custos indiretos (serão rateados entre os produtos)
+
     custos_indiretos = sum(
         num(lancamentos.get(c["id"], 0))
         for c in plano_contas
         if c["tipo"] == "custo_indireto"
     )
-    
-    # Despesas por comportamento (EXCLUINDO financeiras)
+
+    # Despesas por comportamento (excluindo financeiras) — visão absorção
     despesas_fixas = sum(
         num(lancamentos.get(c["id"], 0))
         for c in plano_contas
@@ -499,47 +503,89 @@ def calcular_indicadores(state):
         if c["tipo"] == "despesa" and c.get("comportamento") == "semivariavel"
         and not is_conta_financeira(c)
     )
-    # Perdas (anormais)
+
+    # Perdas (anormais) e despesas financeiras
     perdas = sum(
         num(lancamentos.get(c["id"], 0))
         for c in plano_contas
         if c["tipo"] == "perda"
     )
-    
-    # Despesas financeiras (separadas)
     despesas_financeiras = sum(
         num(lancamentos.get(c["id"], 0))
         for c in plano_contas
         if c["tipo"] == "despesa" and is_conta_financeira(c)
     )
-    
-    # Total de despesas OPERACIONAIS (sem financeiras ou outras)
+
+    # Despesas operacionais (visão absorção, sem financeiras nem perdas)
     despesas_operacionais = despesas_fixas + despesas_variaveis + despesas_semivariaveis
-    
+
+    # ─── VISÃO VARIÁVEL (por comportamento) ───────────────────────────────────
+    # Custos VARIÁVEIS = todas as contas de custo (diretas ou indiretas) com
+    # comportamento "variavel"
+    custos_variaveis = sum(
+        num(lancamentos.get(c["id"], 0))
+        for c in plano_contas
+        if c["tipo"] in ("custo_direto", "custo_indireto")
+        and c.get("comportamento") == "variavel"
+    )
+
+    # Custos FIXOS = todas as contas de custo (diretas ou indiretas) com
+    # comportamento "fixo"
+    custos_fixos_op = sum(
+        num(lancamentos.get(c["id"], 0))
+        for c in plano_contas
+        if c["tipo"] in ("custo_direto", "custo_indireto")
+        and c.get("comportamento") == "fixo"
+    )
+
+    # Custos SEMIVARIÁVEIS = alocados no lado FIXO (decisão didática conservadora)
+    custos_semivariaveis = sum(
+        num(lancamentos.get(c["id"], 0))
+        for c in plano_contas
+        if c["tipo"] in ("custo_direto", "custo_indireto")
+        and c.get("comportamento") == "semivariavel"
+    )
+
     # ─── DEPRECIAÇÃO (para PE Financeiro) ─────────────────────────────────────
     depreciacao = sum(
         num(lancamentos.get(c["id"], 0))
         for c in plano_contas
         if "deprecia" in c["nome"].lower()
     )
-    
-    # ─── MARGEM DE CONTRIBUIÇÃO ───────────────────────────────────────────────
-    # Custos variáveis = CPV direto + comissões + despesas variáveis + semivariáveis
-    custos_var = cpv_direto + comissoes + despesas_variaveis + despesas_semivariaveis
+
+    # ─── MARGEM DE CONTRIBUIÇÃO (visão variável) ──────────────────────────────
+    # Variáveis: custos variáveis + comissões + despesas variáveis
+    # (semivariáveis foram para o lado FIXO)
+    custos_var = (
+        custos_variaveis
+        + comissoes
+        + despesas_variaveis
+    )
     mc = rl - custos_var
     mc_perc = safe_div(mc, rl) * 100
-    
-    # ─── CUSTOS FIXOS TOTAIS ──────────────────────────────────────────────────
-    # Fixos = Custos indiretos + Despesas fixas
-    custos_fixos = custos_indiretos + despesas_fixas
-    custos_fixos_desembolsaveis = custos_fixos - depreciacao
-    
+
+    # ─── CUSTOS FIXOS TOTAIS (visão variável) ─────────────────────────────────
+    # Fixos operacionais: custos fixos + custos semivariáveis + despesas fixas
+    #                  + despesas semivariáveis (todas alocadas como fixo)
+    custos_fixos = (
+        custos_fixos_op
+        + custos_semivariaveis
+        + despesas_fixas
+        + despesas_semivariaveis
+    )
+
+    # Fixos totais (com financeiras) — usados no PEC e no PEE
+    custos_fixos_total = custos_fixos + despesas_financeiras
+
+    # Fixos desembolsáveis (para o PE Financeiro) — exclui apenas depreciação
+    custos_fixos_desembolsaveis = custos_fixos_total - depreciacao
+
     # ─── PONTOS DE EQUILÍBRIO ─────────────────────────────────────────────────
-    lucro_desejado = custos_fixos * 0.3  # 30% como meta padrão
-    
-    pec = safe_div(custos_fixos, mc_perc / 100) if mc_perc > 0 else 0
+    lucro_desejado = custos_fixos_total * 0.3  # 30% como meta padrão
+
+    pec = safe_div(custos_fixos_total, mc_perc / 100) if mc_perc > 0 else 0
     pef = safe_div(custos_fixos_desembolsaveis, mc_perc / 100) if mc_perc > 0 else 0
-    pee = safe_div((custos_fixos + lucro_desejado), mc_perc / 100) if mc_perc > 0 else 0
+    pee = safe_div((custos_fixos_total + lucro_desejado), mc_perc / 100) if mc_perc > 0 else 0
     
     # ─── MARGEM DE SEGURANÇA ──────────────────────────────────────────────────
     ms_abs = rl - pec
@@ -574,6 +620,10 @@ def calcular_indicadores(state):
         "mc": mc,
         "mc_perc": mc_perc,
         "custos_fixos": custos_fixos,
+        "custos_variaveis": custos_variaveis,
+        "custos_fixos_op": custos_fixos_op,
+        "custos_semivariaveis": custos_semivariaveis,
+        "custos_fixos_total": custos_fixos_total,
         "depreciacao": depreciacao,
         "custos_fixos_desembolsaveis": custos_fixos_desembolsaveis,
         "lucro_desejado": lucro_desejado,
@@ -2066,14 +2116,18 @@ def modulo_dre():
             ("(−) Deduções e Impostos s/ Vendas", -indicadores["deducoes"], "#f85149", False),
             ("(−) Comissões s/ Vendas", -indicadores["comissoes"], "#f85149", False),
             ("= Receita Líquida", indicadores["rl"], "#58a6ff", True),
-            ("(−) Custos Diretos (lançados)", -indicadores["cpv_direto"], "#e3b341", False),
-            ("(−) Despesas Variáveis + Semivariáveis", 
-             -(indicadores["despesas_variaveis"] + indicadores["despesas_semivariaveis"]), "#e3b341", False),
+            # ─── Bloco VARIÁVEL ───────────────────────────────────
+            ("(−) Custos Variáveis", -indicadores["custos_variaveis"], "#e3b341", False),
+            ("(−) Despesas Variáveis", -indicadores["despesas_variaveis"], "#e3b341", False),
             ("= Margem de Contribuição (MC)", indicadores["mc"], "#39d353" if indicadores["mc"] >= 0 else "#f85149", True),
             ("  MC %", indicadores["mc_perc"], "#8d96a0", False),
-            ("(−) Custos Indiretos (lançados)", -indicadores["custos_indiretos"], "#f85149", False),
-            ("(−) Despesas Fixas (lançadas)", -indicadores["despesas_fixas"], "#f85149", False),
+            # ─── Bloco FIXO ───────────────────────────────────────
+            ("(−) Custos Fixos", -indicadores["custos_fixos_op"], "#f85149", False),
+            ("(−) Custos Semivariáveis", -indicadores["custos_semivariaveis"], "#f85149", False),
+            ("(−) Despesas Fixas", -indicadores["despesas_fixas"], "#f85149", False),
+            ("(−) Despesas Semivariáveis", -indicadores["despesas_semivariaveis"], "#f85149", False),
             ("= Resultado Operacional", indicadores["lo_variavel"], "#3fb950" if indicadores["lo_variavel"] >= 0 else "#f85149", True),
+            # ─── Abaixo do operacional ────────────────────────────
             ("(−) Despesas Financeiras", -indicadores["despesas_financeiras"], "#f85149", False),
             ("(−) Outras Despesas", -indicadores["perdas"], "#bc8cff", False),
             ("(−) IR/CSLL (34%)", -indicadores["ircsll_var"], "#f85149", False),
