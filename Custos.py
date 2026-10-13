@@ -468,24 +468,38 @@ def calcular_indicadores(state):
         if c["tipo"] == "custo_indireto"
     )
     
-    # Despesas por comportamento
+    # Despesas por comportamento (EXCLUINDO financeiras)
     despesas_fixas = sum(
         num(lancamentos.get(c["id"], 0))
         for c in plano_contas
         if c["tipo"] == "despesa" and c.get("comportamento") == "fixo"
+        and not _is_financeira(c)
     )
     despesas_variaveis = sum(
         num(lancamentos.get(c["id"], 0))
         for c in plano_contas
         if c["tipo"] == "despesa" and c.get("comportamento") == "variavel"
+        and not _is_financeira(c)
     )
     despesas_semivariaveis = sum(
         num(lancamentos.get(c["id"], 0))
         for c in plano_contas
         if c["tipo"] == "despesa" and c.get("comportamento") == "semivariavel"
+        and not _is_financeira(c)
     )
     
-    # Total de despesas operacionais (para DRE por absorção)
+    # Helper para identificar despesas financeiras
+    def _is_financeira(conta):
+        nome = conta["nome"].lower()
+        return any(p in nome for p in ["juros", "bancári", "bancaria", "financeir", "iof", "câmbio", "cambio"])
+    # Despesas financeiras (separadas)
+    despesas_financeiras = sum(
+        num(lancamentos.get(c["id"], 0))
+        for c in plano_contas
+        if c["tipo"] == "despesa" and _is_financeira(c)
+    )
+    
+    # Total de despesas OPERACIONAIS (sem financeiras)
     despesas_operacionais = despesas_fixas + despesas_variaveis + despesas_semivariaveis
     
     # ─── DEPRECIAÇÃO (para PE Financeiro) ─────────────────────────────────────
@@ -524,14 +538,15 @@ def calcular_indicadores(state):
     cpv_absorcao = cpv_direto + custos_indiretos
     lb_absorcao = rl - cpv_absorcao
     lo_absorcao = lb_absorcao - despesas_operacionais
+    resultado_antes_ir = lo_absorcao - despesas_financeiras
     ircsll_abs = lo_absorcao * 0.34 if lo_absorcao > 0 else 0
     ll_absorcao = lo_absorcao - ircsll_abs
     
     # ─── RESULTADO POR VARIÁVEL ───────────────────────────────────────────────
     lo_variavel = mc - custos_fixos
-    ircsll_var = lo_variavel * 0.34 if lo_variavel > 0 else 0
-    ll_variavel = lo_variavel - ircsll_var
-    
+    resultado_antes_ir_var = lo_variavel - despesas_financeiras
+    ircsll_var = resultado_antes_ir_var * 0.34 if resultado_antes_ir_var > 0 else 0
+    ll_variavel = resultado_antes_ir_var - ircsll_var    
     return {
         "rb": rb,
         "deducoes": deducoes,
