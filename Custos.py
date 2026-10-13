@@ -557,8 +557,8 @@ def calcular_indicadores(state):
     ll_absorcao = lo_absorcao - ircsll_abs
     
     # ─── RESULTADO POR VARIÁVEL ───────────────────────────────────────────────
-    lo_variavel = mc - custos_fixos
-    resultado_antes_ir_var = lo_variavel - despesas_financeiras - perdas
+    lo_variavel = mc - custos_fixos - perdas
+    resultado_antes_ir_var = lo_variavel - despesas_financeiras
     ircsll_var = resultado_antes_ir_var * 0.34 if resultado_antes_ir_var > 0 else 0
     ll_variavel = resultado_antes_ir_var - ircsll_var    
     return {
