@@ -273,6 +273,19 @@ def safe_div(a, b):
     """Divisão segura com tratamento de zero"""
     return a / b if b != 0 else 0
 
+def is_conta_financeira(conta):
+    """
+    Identifica se uma conta do plano de contas é uma despesa financeira.
+    Critérios: nome contém termos típicos de despesas financeiras.
+    """
+    nome = str(conta.get("nome", "")).lower()
+    termos = [
+        "juros", "bancári", "bancaria", "financeir", "financeira",
+        "iof", "câmbio", "cambio", "tarifa", "encargo financeiro",
+        "desconto financeiro", "rendimento", "aplicação financeira",
+    ]
+    return any(t in nome for t in termos)
+    
 # ─── DADOS INICIAIS ──────────────────────────────────────────────────────────────
 
 def get_initial_state():
@@ -431,7 +444,6 @@ def get_initial_state():
     }
 
 # ─── FUNÇÕES DE CÁLCULO ──────────────────────────────────────────────────────────
-
 def calcular_indicadores(state):
     """
     Calcula todos os indicadores financeiros e gerenciais.
@@ -488,15 +500,11 @@ def calcular_indicadores(state):
         and not _is_financeira(c)
     )
     
-    # Helper para identificar despesas financeiras
-    def _is_financeira(conta):
-        nome = conta["nome"].lower()
-        return any(p in nome for p in ["juros", "bancári", "bancaria", "financeir", "iof", "câmbio", "cambio"])
     # Despesas financeiras (separadas)
     despesas_financeiras = sum(
         num(lancamentos.get(c["id"], 0))
         for c in plano_contas
-        if c["tipo"] == "despesa" and _is_financeira(c)
+        if c["tipo"] == "despesa" and is_conta_financeira(c)
     )
     
     # Total de despesas OPERACIONAIS (sem financeiras)
