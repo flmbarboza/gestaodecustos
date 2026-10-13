@@ -576,12 +576,15 @@ def calcular_indicadores(state):
         "despesas_fixas": despesas_fixas,
         "despesas_variaveis": despesas_variaveis,
         "despesas_semivariaveis": despesas_semivariaveis,
+        "despesas_financeiras": despesas_financeiras,
         "lo_absorcao": lo_absorcao,
         "ircsll_abs": ircsll_abs,
         "ll_absorcao": ll_absorcao,
         "lo_variavel": lo_variavel,
         "ircsll_var": ircsll_var,
         "ll_variavel": ll_variavel,
+        "resultado_antes_ir": resultado_antes_ir,
+        "resultado_antes_ir_var": resultado_antes_ir_var,
     }
 
 def calcular_rateio(state, conta_id, criterio_id):
@@ -2003,6 +2006,7 @@ def modulo_dre():
             ("= Lucro Bruto", indicadores["lb_absorcao"], "#39d353" if indicadores["lb_absorcao"] >= 0 else "#f85149", True),
             ("(−) Despesas Operacionais", -indicadores["despesas_operacionais"], "#f85149", False),
             ("= Resultado Operacional (EBIT)", indicadores["lo_absorcao"], "#3fb950" if indicadores["lo_absorcao"] >= 0 else "#f85149", True),
+            ("(−) Despesas Financeiras", -indicadores["despesas_financeiras"], "#f85149", False),
             ("(−) IR/CSLL (34%)", -indicadores["ircsll_abs"], "#f85149", False),
             ("= Lucro Líquido", indicadores["ll_absorcao"], "#3fb950" if indicadores["ll_absorcao"] >= 0 else "#f85149", True),
         ]
@@ -2054,6 +2058,7 @@ def modulo_dre():
             ("(−) Custos Indiretos (lançados)", -indicadores["custos_indiretos"], "#f85149", False),
             ("(−) Despesas Fixas (lançadas)", -indicadores["despesas_fixas"], "#f85149", False),
             ("= Resultado Operacional", indicadores["lo_variavel"], "#3fb950" if indicadores["lo_variavel"] >= 0 else "#f85149", True),
+            ("(−) Despesas Financeiras", -indicadores["despesas_financeiras"], "#f85149", False),
             ("(−) IR/CSLL (34%)", -indicadores["ircsll_var"], "#f85149", False),
             ("= Lucro Líquido", indicadores["ll_variavel"], "#3fb950" if indicadores["ll_variavel"] >= 0 else "#f85149", True),
         ]
