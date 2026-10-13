@@ -1662,42 +1662,93 @@ def modulo_lancamentos():
                     color=cores_tipo[tipo]
                 )
         
-        # Detalhamento por conta
-        st.markdown("#### Detalhamento por Conta")
-        
+        # ─── Detalhamento EDITÁVEL por conta ─────────────────────────────
+        st.markdown("#### ✏️ Detalhamento Editável por Conta")
+
+        render_alert(
+            "Você pode <strong>editar o valor</strong> de qualquer conta já lançada, "
+            "<strong>zerar</strong> (remover) um lançamento ou <strong>adicionar</strong> "
+            "um novo valor diretamente na tabela. As alterações são salvas ao sair da célula.",
+            type="info",
+        )
+
         # Filtro por tipo
         tipo_filtro = st.selectbox(
             "Filtrar por tipo",
             options=["Todos"] + tipos_ordem,
-            key="filtro_tipo_consolidado"
+            key="filtro_tipo_consolidado",
         )
-        
+
+        # Monta a tabela com TODAS as contas do filtro (inclusive as zeradas),
+        # para que o usuário possa lançar valores em contas novas também.
         dados_tabela = []
         for c in plano:
             if c["tipo"] == "receita":
                 continue
             if tipo_filtro != "Todos" and c["tipo"] != tipo_filtro:
                 continue
-            valor = num(lanc.get(c["id"], 0))
-            if valor == 0:
-                continue
             dados_tabela.append({
-                "Tipo": c["tipo"],
                 "Conta": c["nome"],
+                "Tipo": c["tipo"],
                 "Comportamento": c.get("comportamento", "---"),
-                "Valor": fmtR(valor),
-                "_valor_num": valor,
+                "Valor": float(num(lanc.get(c["id"], 0))),
+                "_conta_id": c["id"],   # coluna-âncora, escondida
             })
-        
-        if dados_tabela:
-            df_consolidado = pd.DataFrame(dados_tabela).sort_values(["Tipo", "_valor_num"], ascending=[True, False])
-            df_consolidado = df_consolidado.drop(columns=["_valor_num"])
-            st.dataframe(df_consolidado, use_container_width=True, hide_index=True)
-            
-            total_geral = sum(d["_valor_num"] for d in dados_tabela)
-            st.markdown(f"**Total: {fmtR(total_geral)}**")
+
+        if not dados_tabela:
+            st.info("Nenhuma conta disponível para o filtro selecionado.")
         else:
-            st.info("Nenhum lançamento para o filtro selecionado.")
+            df_editable = pd.DataFrame(dados_tabela)
+
+            # Editor: só a coluna "Valor" é editável; as demais são contexto
+            edited_lanc = st.data_editor(
+                df_editable,
+                column_config={
+                    "Conta": st.column_config.TextColumn("Conta", disabled=True, width="large"),
+                    "Tipo": st.column_config.TextColumn("Tipo", disabled=True, width="small"),
+                    "Comportamento": st.column_config.TextColumn("Comportamento", disabled=True, width="small"),
+                    "Valor": st.column_config.NumberColumn(
+                        "Valor (R$)",
+                        min_value=0.0,
+                        step=100.0,
+                        format="%.2f",
+                        width="medium",
+                        help="Edite livremente. Deixe 0 para remover o lançamento.",
+                    ),
+                    "_conta_id": None,   # esconde a coluna-âncora
+                },
+                use_container_width=True,
+                hide_index=True,
+                key=f"editor_lanc_{st.session_state.periodo_ativo_idx if 'periodo_ativo_idx' in st.session_state else 0}",
+            )
+
+            # ─── Detecta mudanças e aplica no estado ──────────────────────
+            houve_mudanca = False
+            for _, row in edited_lanc.iterrows():
+                conta_id = int(row["_conta_id"])
+                novo_valor = float(row["Valor"])
+                valor_atual = float(num(lanc.get(conta_id, 0)))
+
+                if abs(novo_valor - valor_atual) > 0.005:
+                    if novo_valor == 0:
+                        # Remove a chave (limpa o lançamento)
+                        lanc.pop(conta_id, None)
+                    else:
+                        lanc[conta_id] = novo_valor
+                    houve_mudanca = True
+
+            if houve_mudanca:
+                st.session_state.mensagem_lanc = "✅ Lançamentos atualizados."
+                st.rerun()
+
+            # Totais
+            total_geral = sum(num(v) for v in lanc.values())
+            st.markdown(
+                f"<div style='margin-top:8px;font-family:IBM Plex Mono,monospace;"
+                f"font-size:14px;color:#e6edf3;'>"
+                f"<strong>Total lançado:</strong> {fmtR(total_geral)}</div>",
+                unsafe_allow_html=True,
+            )
         
         # Botão para zerar lançamentos
         with st.expander("⚠️ Zerar lançamentos"):
