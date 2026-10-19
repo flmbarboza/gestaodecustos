@@ -816,7 +816,7 @@ def modulo_plano_contas():
             )
         
         # Controle de versão do uploader para poder resetá-lo
-        if "uploader_version" not in st.session_state:
+        if "uploader_version"  st.session_state:
             st.session_state.uploader_version = 0
         
         # Passo 2: Upload do arquivo
@@ -883,7 +883,7 @@ def modulo_plano_contas():
                         # Mapeia Natureza
                         if col_natureza and not pd.isna(row[col_natureza]):
                             nat = str(row[col_natureza]).lower().strip()
-                            if "direto" in nat and "indireto" not in nat:
+                            if "direto" in nat and "indireto"  nat:
                                 conta["natureza"] = "direto"
                             elif "indireto" in nat:
                                 conta["natureza"] = "indireto"
@@ -973,7 +973,7 @@ def modulo_plano_contas():
     st.subheader("📝 Editor do Plano de Contas")
 
     # Garante contador de IDs único
-    if "prox_id_conta" not in st.session_state:
+    if "prox_id_conta"  st.session_state:
         ids_existentes = [c["id"] for c in st.session_state.plano_contas if isinstance(c.get("id"), int)]
         st.session_state.prox_id_conta = (max(ids_existentes) + 1) if ids_existentes else 1
 
@@ -1329,7 +1329,7 @@ def modulo_lancamentos():
     if "lanc_editor_version" not in st.session_state:
         st.session_state.lanc_editor_version = 0
     if "mensagem_produto" not in st.session_state:
-    st.session_state.mensagem_produto = None
+        st.session_state.mensagem_produto = None
     
     # Opções de contas formatadas
     opcoes_contas = {c["id"]: f"[{c['tipo']}] {c['nome']}" for c in plano}
