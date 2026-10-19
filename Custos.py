@@ -1326,6 +1326,8 @@ def modulo_lancamentos():
         st.session_state.lancamentos = {}
     if "lancamentos_pendentes" not in st.session_state:
         st.session_state.lancamentos_pendentes = []   # lista de dicts aguardando revisão
+    if "lanc_editor_version" not in st.session_state:
+        st.session_state.lanc_editor_version = 0
     
     # Opções de contas formatadas
     opcoes_contas = {c["id"]: f"[{c['tipo']}] {c['nome']}" for c in plano}
@@ -1719,7 +1721,7 @@ def modulo_lancamentos():
                 },
                 use_container_width=True,
                 hide_index=True,
-                key=f"editor_lanc_{st.session_state.periodo_ativo_idx if 'periodo_ativo_idx' in st.session_state else 0}",
+                key=f"editor_lanc_{st.session_state.periodo_ativo_idx if 'periodo_ativo_idx' in st.session_state else 0}_{st.session_state.lanc_editor_version}",
             )
 
             # ─── Detecta mudanças e aplica no estado ──────────────────────
@@ -1755,6 +1757,7 @@ def modulo_lancamentos():
             st.warning("Esta ação remove **todos os valores lançados** (mas mantém o plano de contas).")
             if st.button("🗑 Zerar todos os lançamentos", key="btn_zerar_lanc"):
                 st.session_state.lancamentos = {}
+                st.session_state.lanc_editor_version += 1   # ← força novo data_editor
                 st.rerun()
                 
 def modulo_rateio():
