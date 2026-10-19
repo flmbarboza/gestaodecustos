@@ -298,7 +298,7 @@ def get_initial_state():
         
         # Plano de Contas - ESTRUTURA BASE
         # Tipos de gasto: receita, custo_direto, custo_indireto, despesa, investimento, perda
-        # Natureza (para custos): direto, indireto
+        # ureza (para custos): direto, indireto
         # Comportamento: fixo, variavel, semivariavel, ---
         "plano_contas": [
             # === RECEITAS ===
@@ -883,7 +883,7 @@ def modulo_plano_contas():
                         # Mapeia Natureza
                         if col_natureza and not pd.isna(row[col_natureza]):
                             nat = str(row[col_natureza]).lower().strip()
-                            if "direto" in nat and "indireto"  nat:
+                            if "direto" in nat and "indireto" not in nat:
                                 conta["natureza"] = "direto"
                             elif "indireto" in nat:
                                 conta["natureza"] = "indireto"
