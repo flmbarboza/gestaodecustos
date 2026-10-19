@@ -2980,66 +2980,130 @@ def modulo_info():
 # ─── EXPORTAÇÃO / IMPORTAÇÃO DO ESTADO ──────────────────────────────────────────
 
 def exportar_estado():
-    """Serializa o estado atual em JSON para download"""
+    """Serializa TODO o estado do app em JSON para download."""
     estado = {
-        "versao": "1.0",
+        "versao": "2.0",
         "data_exportacao": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+        # ─── Identificação ────────────────────────────────────────
         "nome_empresa": st.session_state.get("nome_empresa", ""),
         "periodo": st.session_state.get("periodo", ""),
         "regime": st.session_state.get("regime", ""),
+        # ─── Cadastros ────────────────────────────────────────────
         "plano_contas": st.session_state.get("plano_contas", []),
         "produtos": st.session_state.get("produtos", []),
-        "vendas": st.session_state.get("vendas", []),
-        "receita_bruta_total": st.session_state.get("receita_bruta_total", 0),
-        "impostos_medio_perc": st.session_state.get("impostos_medio_perc", 0),
-        "despesas": st.session_state.get("despesas", []),
-        "estoque_inicial": st.session_state.get("estoque_inicial", []),
-        "estoque_final": st.session_state.get("estoque_final", []),
-        "producao_mes": st.session_state.get("producao_mes", []),
-        "comissao_perc": st.session_state.get("comissao_perc", 5),
         "criterios_rateio": st.session_state.get("criterios_rateio", []),
         "pesos_rateio": st.session_state.get("pesos_rateio", {}),
         "markup_perc": {str(k): v for k, v in st.session_state.get("markup_perc", {}).items()},
         "preco_mercado": {str(k): v for k, v in st.session_state.get("preco_mercado", {}).items()},
+        # ─── Receita ──────────────────────────────────────────────
+        "receita_bruta_total": st.session_state.get("receita_bruta_total", 0),
+        "impostos_medio_perc": st.session_state.get("impostos_medio_perc", 0),
+        "comissao_perc": st.session_state.get("comissao_perc", 5),
+        "vendas": st.session_state.get("vendas", []),
+        "outras_receitas": st.session_state.get("outras_receitas", []),
+        # ─── Lançamentos e custos ─────────────────────────────────
+        "lancamentos": {
+            # Garante que as chaves sejam strings no JSON
+            str(k): v for k, v in st.session_state.get("lancamentos", {}).items()
+        },
+        "despesas": st.session_state.get("despesas", []),
+        "estoque_inicial": st.session_state.get("estoque_inicial", []),
+        "estoque_final": st.session_state.get("estoque_final", []),
+        "producao_mes": st.session_state.get("producao_mes", []),
+        # ─── Laudo ────────────────────────────────────────────────
         "laudo": st.session_state.get("laudo", {}),
     }
-    return json.dumps(estado, ensure_ascii=False, indent=2)
+    return json.dumps(estado, ensure_ascii=False, indent=2, default=str)
+
+
+# Domínio: chaves do app que o import pode substituir.
+# Chaves de controle do Streamlit (initialized, uploader_*, page, mensagens, etc.)
+# NÃO estão aqui — logo, NÃO são tocadas.
+_CHAVES_DO_APP = [
+    "nome_empresa", "periodo", "regime",
+    "plano_contas", "produtos",
+    "criterios_rateio", "pesos_rateio",
+    "markup_perc", "preco_mercado",
+    "receita_bruta_total", "impostos_medio_perc", "comissao_perc",
+    "vendas", "outras_receitas",
+    "lancamentos", "despesas",
+    "estoque_inicial", "estoque_final", "producao_mes",
+    "laudo",
+]
 
 
 def importar_estado(conteudo_json):
-    """Restaura o estado a partir de um JSON carregado"""
+    """
+    Substitui INTEGRALMENTE o estado do app pelo conteúdo do JSON.
+    - Limpa todas as chaves de domínio antes de aplicar (reset total).
+    - Aplica defaults para o que o JSON não trouxer, evitando estado parcial.
+    - Retorna (sucesso, info).
+    """
     try:
         estado = json.loads(conteudo_json)
     except Exception as e:
         return False, f"Arquivo JSON inválido: {str(e)}"
     
-    # Validação básica
     if not isinstance(estado, dict):
         return False, "Formato de arquivo inválido."
     
     if "plano_contas" not in estado:
         return False, "O arquivo não contém um plano de contas válido."
     
-    # Restaura cada chave
-    chaves = [
-        "nome_empresa", "periodo", "regime",
-        "plano_contas", "produtos", "vendas", "despesas",
-        "estoque_inicial", "estoque_final", "producao_mes",
-        "comissao_perc", "criterios_rateio", "pesos_rateio",
-        "laudo", "lancamentos",
-        "receita_bruta_total", "impostos_medio_perc",   # ← NOVAS
-    ]
-    for chave in chaves:
+    # ─── 1) RESET: remove todas as chaves do domínio ──────────────
+    for chave in _CHAVES_DO_APP:
+        st.session_state.pop(chave, None)
+    
+    # ─── 2) DEFAULTS (o que o JSON não trouxer, usa o exemplo) ────
+    estado_inicial = get_initial_state()
+    for chave in _CHAVES_DO_APP:
+        if chave not in estado and chave in estado_inicial:
+            st.session_state[chave] = estado_inicial[chave]
+    
+    # ─── 3) RESTORE do JSON (sobrepõe os defaults) ────────────────
+    for chave in _CHAVES_DO_APP:
         if chave in estado:
             st.session_state[chave] = estado[chave]
     
-    # Restaura os dicionários com chaves inteiras
-    if "markup_perc" in estado:
-        st.session_state.markup_perc = {int(k): v for k, v in estado["markup_perc"].items()}
-    if "preco_mercado" in estado:
-        st.session_state.preco_mercado = {int(k): v for k, v in estado["preco_mercado"].items()}
+    # ─── 4) Normalizações específicas ─────────────────────────────
+    # lancamentos: chaves string → int
+    lanc = st.session_state.get("lancamentos", {})
+    st.session_state.lancamentos = {
+        (int(k) if str(k).lstrip("-").isdigit() else k): num(v)
+        for k, v in lanc.items()
+    }
     
-    return True, estado.get("data_exportacao", "data desconhecida")
+    # markup_perc e preco_mercado: chaves string → int
+    if "markup_perc" in st.session_state:
+        st.session_state.markup_perc = {
+            int(k): v for k, v in st.session_state.markup_perc.items()
+        }
+    if "preco_mercado" in st.session_state:
+        st.session_state.preco_mercado = {
+            int(k): v for k, v in st.session_state.preco_mercado.items()
+        }
+    
+    # Garante que os contadores de versão do editor sejam resetados
+    st.session_state.lanc_editor_version = st.session_state.get("lanc_editor_version", 0) + 1
+    st.session_state.uploader_lanc_version = st.session_state.get("uploader_lanc_version", 0) + 1
+    st.session_state.uploader_version = st.session_state.get("uploader_version", 0) + 1
+    st.session_state.uploader_estado_version = st.session_state.get("uploader_estado_version", 0) + 1
+    
+    # Limpa filas pendentes (não fazem parte do JSON)
+    st.session_state.lancamentos_pendentes = []
+    
+    # ─── 5) Feedback ──────────────────────────────────────────────
+    data_export = estado.get("data_exportacao", "data desconhecida")
+    n_contas = len(st.session_state.get("plano_contas", []))
+    n_lanc = len(st.session_state.get("lancamentos", {}))
+    n_vendas = len(st.session_state.get("vendas", []))
+    n_outras = len(st.session_state.get("outras_receitas", []))
+    return True, (
+        f"{data_export} — {n_contas} conta(s), "
+        f"{n_lanc} lançamento(s), "
+        f"{n_vendas} venda(s), "
+        f"{n_outras} outra(s) receita(s)"
+    )
     
 # ─── FUNÇÃO PRINCIPAL ───────────────────────────────────────────────────────────
 
