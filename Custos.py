@@ -973,7 +973,7 @@ def modulo_plano_contas():
     st.subheader("📝 Editor do Plano de Contas")
 
     # Garante contador de IDs único
-    if "prox_id_conta"  st.session_state:
+    if "prox_id_conta" not in st.session_state:
         ids_existentes = [c["id"] for c in st.session_state.plano_contas if isinstance(c.get("id"), int)]
         st.session_state.prox_id_conta = (max(ids_existentes) + 1) if ids_existentes else 1
 
