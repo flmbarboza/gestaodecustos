@@ -1330,7 +1330,7 @@ def modulo_lancamentos():
         st.session_state.lanc_editor_version = 0
     if "mensagem_produto" not in st.session_state:
         st.session_state.mensagem_produto = None
-    
+     
     # Opções de contas formatadas
     opcoes_contas = {c["id"]: f"[{c['tipo']}] {c['nome']}" for c in plano}
     
