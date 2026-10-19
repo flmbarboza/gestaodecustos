@@ -1395,7 +1395,9 @@ def modulo_lancamentos():
             if col_desc is None or col_valor is None:
                 st.error("❌ A planilha precisa ter as colunas **Descrição** e **Valor**. Baixe o modelo para referência.")
             else:
-                pendentes = []
+                pendentes_ok = []
+                linhas_receita = []
+                
                 for _, row in df_import.iterrows():
                     descricao = str(row[col_desc]).strip() if not pd.isna(row[col_desc]) else ""
                     if not descricao:
@@ -1415,26 +1417,145 @@ def modulo_lancamentos():
                     # Sugere conta
                     conta_sugerida_id, motivo = sugerir_conta(descricao, plano)
                     
-                    pendentes.append({
-                        "data": data,
-                        "descricao": descricao,
-                        "valor": valor,
-                        "conta_sugerida_id": conta_sugerida_id,
-                        "motivo": motivo,
-                        "conta_confirmada_id": conta_sugerida_id,  # o usuário pode alterar
-                    })
+                    # Descobre o tipo da conta sugerida
+                    conta_obj = next((c for c in plano if c["id"] == conta_sugerida_id), None)
+                    tipo_conta = conta_obj["tipo"] if conta_obj else None
+                    nome_conta = conta_obj["nome"] if conta_obj else "—"
+                    
+                    if tipo_conta == "receita":
+                        # Receita → não vai para fila de revisão; vai para "Outras Receitas"
+                        linhas_receita.append({
+                            "data": data,
+                            "descricao": descricao,
+                            "valor": valor,
+                            "conta": nome_conta,
+                        })
+                    else:
+                        pendentes_ok.append({
+                            "data": data,
+                            "descricao": descricao,
+                            "valor": valor,
+                            "conta_sugerida_id": conta_sugerida_id,
+                            "motivo": motivo,
+                            "conta_confirmada_id": conta_sugerida_id,
+                        })
                 
-                if pendentes:
-                    # Adiciona à fila de revisão
-                    st.session_state.lancamentos_pendentes = pendentes
-                    st.success(f"✅ {len(pendentes)} lançamento(s) lido(s). **Revise as sugestões abaixo.**")
+                # ═══════════════════════════════════════════════════════════
+                # RECEITAS detectadas → opção de exportar para Outras Receitas
+                # ═══════════════════════════════════════════════════════════
+                if linhas_receita:
+                    total_receita = sum(l["valor"] for l in linhas_receita)
+                    
+                    st.markdown(f"""
+                    <div style="background:#d2992220;border:1px solid #d2992260;
+                                border-left:4px solid #d29922;border-radius:8px;
+                                padding:16px 18px;margin:8px 0;">
+                        <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;
+                                    text-transform:uppercase;letter-spacing:0.08em;
+                                    color:#e3b341;font-weight:700;margin-bottom:8px;">
+                            ⚠️ {len(linhas_receita)} linha(s) de Receita/Dedução detectada(s)
+                        </div>
+                        <div style="font-size:13px;color:#f0e68c;line-height:1.7;margin-bottom:10px;">
+                            Os lançamentos abaixo foram classificados como <strong>Receita</strong>.
+                            Eles <strong>não vão para a fila de revisão</strong> (que alimenta a DRE
+                            por custos e despesas). Se você confirmar, serão adicionados como
+                            <strong>Outras Receitas</strong> no módulo <strong>🛒 Vendas</strong>.
+                        </div>
+                        <table style="width:100%;border-collapse:collapse;
+                                      font-family:'IBM Plex Mono',monospace;font-size:12px;">
+                            <thead>
+                                <tr style="color:#8d96a0;text-transform:uppercase;
+                                           font-size:10px;letter-spacing:0.06em;">
+                                    <th style="text-align:left;padding:6px 8px;">Data</th>
+                                    <th style="text-align:left;padding:6px 8px;">Descrição</th>
+                                    <th style="text-align:left;padding:6px 8px;">Conta Identificada</th>
+                                    <th style="text-align:right;padding:6px 8px;">Valor</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {''.join(
+                                    f"<tr style='border-top:1px solid #30363d;'>"
+                                    f"<td style='padding:6px 8px;color:#8d96a0;'>{l['data'] or '—'}</td>"
+                                    f"<td style='padding:6px 8px;color:#e6edf3;'>{l['descricao']}</td>"
+                                    f"<td style='padding:6px 8px;color:#e3b341;'>{l['conta']}</td>"
+                                    f"<td style='padding:6px 8px;text-align:right;color:#3fb950;'>{fmtR(l['valor'])}</td>"
+                                    f"</tr>"
+                                    for l in linhas_receita
+                                )}
+                                <tr style="border-top:2px solid #d2992260;">
+                                    <td colspan="3" style="padding:6px 8px;
+                                        text-align:right;color:#8d96a0;
+                                        font-size:11px;text-transform:uppercase;">
+                                        Total a exportar
+                                    </td>
+                                    <td style="padding:6px 8px;text-align:right;
+                                               color:#e3b341;font-weight:700;">
+                                        {fmtR(total_receita)}
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 2])
+                    
+                    with col_btn1:
+                        if st.button(
+                            "✅ Exportar para Outras Receitas",
+                            type="primary",
+                            use_container_width=True,
+                            key="btn_exportar_receitas",
+                        ):
+                            if "outras_receitas" not in st.session_state:
+                                st.session_state.outras_receitas = []
+                            for l in linhas_receita:
+                                st.session_state.outras_receitas.append({
+                                    "descricao": l["descricao"],
+                                    "valor": l["valor"],
+                                })
+                            n = len(linhas_receita)
+                            st.session_state.mensagem_lanc = (
+                                f"✅ {n} receita(s) exportada(s) para "
+                                f"**🛒 Vendas → Outras Receitas** (total {fmtR(total_receita)})."
+                            )
+                            st.session_state.uploader_lanc_version += 1
+                            st.rerun()
+                    
+                    with col_btn2:
+                        if st.button(
+                            "❌ Ignorar receitas",
+                            use_container_width=True,
+                            key="btn_ignorar_receitas",
+                        ):
+                            st.session_state.mensagem_lanc = (
+                                f"ℹ️ {len(linhas_receita)} receita(s) ignorada(s)."
+                            )
+                            st.session_state.uploader_lanc_version += 1
+                            st.rerun()
+                    
+                    with col_btn3:
+                        st.caption(
+                            "As receitas **não entram** na fila de revisão. "
+                            "Elas vão direto para *Outras Receitas* se você confirmar."
+                        )
+                
+                # ═══════════════════════════════════════════════════════════
+                # O que NÃO é receita → fila de revisão normal
+                # ═══════════════════════════════════════════════════════════
+                if pendentes_ok:
+                    st.session_state.lancamentos_pendentes = pendentes_ok
+                    msg = f"✅ {len(pendentes_ok)} lançamento(s) lido(s). **Revise as sugestões abaixo.**"
+                    if linhas_receita:
+                        msg += f" ({len(linhas_receita)} linha(s) de receita separada(s) acima.)"
+                    st.success(msg)
                     st.session_state.uploader_lanc_version += 1
                     st.rerun()
-                else:
+                elif not linhas_receita:
                     st.warning("⚠️ Nenhum lançamento válido encontrado na planilha.")
         except Exception as e:
             st.error(f"❌ Erro ao processar planilha: {str(e)}")
-    
+            
     # ═══════════════════════════════════════════════════════════════════════════
     # SEÇÃO 2: ADIÇÃO MANUAL DE LANÇAMENTO
     # ═══════════════════════════════════════════════════════════════════════════
