@@ -284,7 +284,7 @@ def is_conta_financeira(conta):
         "iof", "câmbio", "cambio", "tarifa", "encargo financeiro",
         "desconto financeiro", "rendimento", "aplicação financeira",
     ]
-    return any(t in nome for t in termos)
+    return any(t in nome t in termos)
     
 # ─── DADOS INICIAIS ──────────────────────────────────────────────────────────────
 
@@ -474,32 +474,32 @@ def calcular_indicadores(state):
     # ─── VISÃO ABSORÇÃO (por tipo) ────────────────────────────────────────────
     cpv_direto = sum(
         num(lancamentos.get(c["id"], 0))
-        for c in plano_contas
+        c in plano_contas
         if c["tipo"] == "custo_direto"
     )
 
     custos_indiretos = sum(
         num(lancamentos.get(c["id"], 0))
-        for c in plano_contas
+        c in plano_contas
         if c["tipo"] == "custo_indireto"
     )
 
     # Despesas por comportamento (excluindo financeiras) — visão absorção
     despesas_fixas = sum(
         num(lancamentos.get(c["id"], 0))
-        for c in plano_contas
+        c in plano_contas
         if c["tipo"] == "despesa" and c.get("comportamento") == "fixo"
         and not is_conta_financeira(c)
     )
     despesas_variaveis = sum(
         num(lancamentos.get(c["id"], 0))
-        for c in plano_contas
+        c in plano_contas
         if c["tipo"] == "despesa" and c.get("comportamento") == "variavel"
         and not is_conta_financeira(c)
     )
     despesas_semivariaveis = sum(
         num(lancamentos.get(c["id"], 0))
-        for c in plano_contas
+        c in plano_contas
         if c["tipo"] == "despesa" and c.get("comportamento") == "semivariavel"
         and not is_conta_financeira(c)
     )
@@ -507,12 +507,12 @@ def calcular_indicadores(state):
     # Perdas (anormais) e despesas financeiras
     perdas = sum(
         num(lancamentos.get(c["id"], 0))
-        for c in plano_contas
+        c in plano_contas
         if c["tipo"] == "perda"
     )
     despesas_financeiras = sum(
         num(lancamentos.get(c["id"], 0))
-        for c in plano_contas
+        c in plano_contas
         if c["tipo"] == "despesa" and is_conta_financeira(c)
     )
 
@@ -524,7 +524,7 @@ def calcular_indicadores(state):
     # comportamento "variavel"
     custos_variaveis = sum(
         num(lancamentos.get(c["id"], 0))
-        for c in plano_contas
+        c in plano_contas
         if c["tipo"] in ("custo_direto", "custo_indireto")
         and c.get("comportamento") == "variavel"
     )
@@ -1424,89 +1424,24 @@ def modulo_lancamentos():
                     
                     # ← DEBUG TEMPORÁRIO: apaga depois de validar
                     st.write(f"🔍 **{descricao}** → conta **{nome_conta}** (tipo: `{tipo_conta}`)")
-                    
-                    if tipo_conta == "receita":
-                        linhas_receita.append({
-                            "data": data,
-                            "descricao": descricao,
-                            "valor": valor,
-                            "conta": nome_conta,
-                        })
-                    else:
-                        pendentes_ok.append({
-                            "data": data,
-                            "descricao": descricao,
-                            "valor": valor,
-                            "conta_sugerida_id": conta_sugerida_id,
-                            "motivo": motivo,
-                            "conta_confirmada_id": conta_sugerida_id,
-                        })
-                
-                # ─── DEBUG TEMPORÁRIO: apaga depois de validar ──────
-                st.write(f"📊 Debug: {len(pendentes_ok)} não-receita(s), {len(linhas_receita)} receita(s)")
-                
-                # ─── BLOCO DE RECEITAS ───────────────────────────────
-                if linhas_receita:
-                    total_receita = sum(l["valor"] for l in linhas_receita)
-                    
-                    st.warning(
-                        f"⚠️ **{len(linhas_receita)} linha(s) de Receita detectada(s)** — "
-                        f"total **{fmtR(total_receita)}**. "
-                        f"Elas NÃO vão para a fila de revisão; clique em **Exportar** abaixo."
-                    )
-                    
-                    with st.expander("📋 Ver linhas de receita", expanded=True):
-                        for l in linhas_receita:
-                            st.write(
-                                f"- {l['data'] or '—'} | **{l['descricao']}** | "
-                                f"{l['conta']} | **{fmtR(l['valor'])}**"
-                            )
-                    
-                    col1, col2 = st.columns([1, 1])
-                    with col1:
-                        if st.button(
-                            "✅ Exportar para Outras Receitas",
-                            type="primary",
-                            use_container_width=True,
-                            key="btn_exportar_receitas",
-                        ):
-                            if "outras_receitas" not in st.session_state:
-                                st.session_state.outras_receitas = []
-                            for l in linhas_receita:
-                                st.session_state.outras_receitas.append({
-                                    "descricao": l["descricao"],
-                                    "valor": l["valor"],
-                                })
-                            st.session_state.mensagem_lanc = (
-                                f"✅ {len(linhas_receita)} receita(s) exportada(s) "
-                                f"para **🛒 Vendas → Outras Receitas**."
-                            )
-                            st.session_state.uploader_lanc_version += 1
-                            st.rerun()
-                    with col2:
-                        if st.button(
-                            "❌ Ignorar receitas",
-                            use_container_width=True,
-                            key="btn_ignorar_receitas",
-                        ):
-                            st.session_state.mensagem_lanc = (
-                                f"ℹ️ {len(linhas_receita)} receita(s) ignorada(s)."
-                            )
-                            st.session_state.uploader_lanc_version += 1
-                            st.rerun()
-                
-                # ─── BLOCO DE NÃO-RECEITAS ───────────────────────────
-                if pendentes_ok:
+
+                    pendentes_ok.append({
+                        "data": data,
+                        "descricao": descricao,
+                        "valor": valor,
+                        "conta_sugerida_id": conta_sugerida_id,
+                        "motivo": motivo,
+                        "conta_confirmada_id": conta_sugerida_id,
+                    })
+
+            if pendentes_ok:
                     st.session_state.lancamentos_pendentes = pendentes_ok
-                    msg = f"✅ {len(pendentes_ok)} lançamento(s) de custo/despesa para revisar."
-                    if linhas_receita:
-                        msg += f" ({len(linhas_receita)} receita(s) separada(s) acima.)"
-                    st.success(msg)
+                    st.success(f"✅ {len(pendentes_ok)} lançamento(s) lido(s). **Revise as sugestões abaixo.**")
                     st.session_state.uploader_lanc_version += 1
                     st.rerun()
-                
-                if not pendentes_ok and not linhas_receita:
+                else:
                     st.warning("⚠️ Nenhum lançamento válido encontrado na planilha.")
+
         
         except Exception as e:
             st.error(f"❌ Erro ao processar planilha: {str(e)}")
@@ -1628,18 +1563,46 @@ def modulo_lancamentos():
         col1, col2, col3 = st.columns([1, 1, 2])
         with col1:
             if st.button("✅ Confirmar Todos", type="primary", use_container_width=True):
-                # Aplica cada lançamento na conta confirmada
+                if "outras_receitas" not in st.session_state:
+                    st.session_state.outras_receitas = []
+                
+                n_para_lanc = 0
+                n_para_outras = 0
+                
                 for pend in st.session_state.lancamentos_pendentes:
                     conta_id = pend["conta_confirmada_id"]
                     if conta_id is None:
                         continue
-                    valor_atual = num(st.session_state.lancamentos.get(conta_id, 0))
-                    st.session_state.lancamentos[conta_id] = valor_atual + pend["valor"]
+                    
+                    conta_obj = next((c for c in plano if c["id"] == conta_id), None)
+                    tipo = conta_obj["tipo"] if conta_obj else None
+                    
+                    if tipo == "receita":
+                        # Receita → outras_receitas (alimenta a DRE via Vendas)
+                        st.session_state.outras_receitas.append({
+                            "descricao": pend["descricao"],
+                            "valor": pend["valor"],
+                        })
+                        n_para_outras += 1
+                    else:
+                        # Custo/despesa/perda/investimento → lancamentos
+                        valor_atual = num(st.session_state.lancamentos.get(conta_id, 0))
+                        st.session_state.lancamentos[conta_id] = valor_atual + pend["valor"]
+                        n_para_lanc += 1
                 
-                # Limpa a fila
-                n_confirmados = len(st.session_state.lancamentos_pendentes)
+                n_total = n_para_lanc + n_para_outras
                 st.session_state.lancamentos_pendentes = []
-                st.session_state.mensagem_lanc = f"✅ {n_confirmados} lançamento(s) confirmado(s) e aplicado(s) às contas."
+                
+                if n_para_outras > 0:
+                    st.session_state.mensagem_lanc = (
+                        f"✅ {n_total} lançamento(s) confirmado(s): "
+                        f"{n_para_lanc} em contas de custo/despesa, "
+                        f"{n_para_outras} redirecionada(s) para **🛒 Vendas → Outras Receitas**."
+                    )
+                else:
+                    st.session_state.mensagem_lanc = (
+                        f"✅ {n_total} lançamento(s) confirmado(s) e aplicado(s) às contas."
+                    )
                 st.rerun()
         
         with col2:
