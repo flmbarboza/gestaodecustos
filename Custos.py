@@ -1909,119 +1909,192 @@ def modulo_rateio():
                 )
 
 def modulo_vendas():
-    """Módulo: Vendas - modelo simplificado de receita"""
+    """Módulo: Vendas - modelo híbrido (simplificado ou derivado dos produtos)."""
     st.header("🛒 Receita de Vendas")
     
     render_alert("""
-    Informe a <strong>Receita Bruta Total</strong> do período e a <strong>alíquota média 
-    de impostos sobre vendas</strong>. O sistema calculará automaticamente as deduções, 
-    comissões e a Receita Líquida.
-    <br><br>
-    💡 <em>Este é um modelo simplificado. Os custos e despesas são lançados no módulo 
-    <strong>💰 Lançamentos</strong>.</em>
+    Informe a <strong>Receita Bruta</strong> do período e a <strong>alíquota média de impostos</strong>.
+    Você pode digitar os valores manualmente ou <strong>derivar automaticamente</strong>
+    a partir dos produtos cadastrados no módulo <strong>💰 Lançamentos</strong>.
     """)
     
-    # ─── Inicializa as chaves se não existirem ─────────────────────────────────
+    # Inicialização (idempotente)
     if "receita_bruta_total" not in st.session_state:
         st.session_state.receita_bruta_total = 100000.0
-    
     if "impostos_medio_perc" not in st.session_state:
         st.session_state.impostos_medio_perc = 12.0
-    
     if "comissao_perc" not in st.session_state:
         st.session_state.comissao_perc = 5.0
     
-    # ─── Formulário principal ──────────────────────────────────────────────────
-    col1, col2, col3 = st.columns(3)
+    # ─── MODO ──────────────────────────────────────────────────────────
+    modo = st.radio(
+        "**Como deseja informar a receita?**",
+        options=["manual", "produtos"],
+        format_func=lambda x: (
+            "✍️ Digitar manualmente (receita bruta total)"
+            if x == "manual"
+            else "🧮 Derivar dos produtos (Σ qtd × preço)"
+        ),
+        index=0 if st.session_state.get("modo_vendas", "manual") == "manual" else 1,
+        horizontal=True,
+        key="modo_vendas_radio",
+    )
+    st.session_state.modo_vendas = modo
     
-    with col1:
-        receita_bruta = st.number_input(
-            "Receita Bruta de Vendas (R$)",
-            value=float(st.session_state.receita_bruta_total),
-            min_value=0.0,
-            step=1000.0,
-            format="%.2f",
-            key="input_receita_bruta",
-            help="Valor total das vendas no período, antes de impostos e comissões"
+    # ─── MODO DERIVADO DOS PRODUTOS ────────────────────────────────────
+    if modo == "produtos":
+        vendas = st.session_state.vendas
+        produtos = st.session_state.produtos
+        
+        # Valida se há dados
+        if not vendas or all(num(v.get("qtd", 0)) == 0 for v in vendas):
+            st.warning(
+                "⚠️ Nenhuma quantidade foi informada no módulo **💰 Lançamentos** "
+                "(bloco *Vendas de Produtos*). Preencha lá ou volte para o modo manual."
+            )
+            return
+        
+        # Deriva RB, impostos (média ponderada) e comissão
+        rb_derivada = sum(
+            num(v.get("qtd", 0)) * num(v.get("preco_unit", 0)) for v in vendas
         )
-        st.session_state.receita_bruta_total = receita_bruta
+        
+        # Impostos ponderados pela RB de cada produto
+        if rb_derivada > 0:
+            impostos_derivados = sum(
+                num(v.get("qtd", 0)) * num(v.get("preco_unit", 0)) * num(v.get("impostos", 0))
+                for v in vendas
+            ) / rb_derivada
+        else:
+            impostos_derivados = num(st.session_state.impostos_medio_perc)
+        
+        # Atualiza o estado silenciosamente
+        st.session_state.receita_bruta_total = rb_derivada
+        st.session_state.impostos_medio_perc = impostos_derivados
+        
+        # Mostra o resultado (somente leitura)
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.markdown(f"""
+            <div class="kpi-container">
+                <div class="kpi-label">Receita Bruta (derivada)</div>
+                <div class="kpi-value" style="color:#3fb950;">{fmtR(rb_derivada)}</div>
+                <div class="kpi-sub">Σ qtd × preço dos produtos</div>
+            </div>
+            """, unsafe_allow_html=True)
+        with col2:
+            st.markdown(f"""
+            <div class="kpi-container">
+                <div class="kpi-label">Impostos Médios</div>
+                <div class="kpi-value" style="color:#f85149;">{fmtP(impostos_derivados)}</div>
+                <div class="kpi-sub">Média ponderada pela RB</div>
+            </div>
+            """, unsafe_allow_html=True)
+        with col3:
+            # Comissão: input editável (não dá para derivar)
+            comissao = st.number_input(
+                "Comissão sobre Vendas (%)",
+                value=float(st.session_state.comissao_perc),
+                min_value=0.0, max_value=100.0, step=0.5,
+                format="%.2f",
+                key="input_comissao_modo_produtos",
+            )
+            st.session_state.comissao_perc = comissao
+        
+        render_alert(
+            "ℹ️ Os valores estão sendo <strong>calculados automaticamente</strong> a partir do bloco "
+            "<em>Vendas de Produtos</em> no módulo Lançamentos. Para alterá-los, edite as quantidades "
+            "e preços lá, ou volte para o modo manual.",
+            type="info",
+        )
     
-    with col2:
-        impostos_medio = st.number_input(
-            "Impostos sobre Vendas (%)",
-            value=float(st.session_state.impostos_medio_perc),
-            min_value=0.0,
-            max_value=100.0,
-            step=0.5,
-            format="%.2f",
-            key="input_impostos_medio",
-            help="Alíquota média de ICMS, PIS, COFINS, ISS, etc."
+    # ─── MODO MANUAL ───────────────────────────────────────────────────
+    else:
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            rb = st.number_input(
+                "Receita Bruta de Vendas (R$)",
+                value=float(st.session_state.receita_bruta_total),
+                min_value=0.0, step=1000.0, format="%.2f",
+                key="input_receita_bruta",
+                help="Valor total das vendas no período",
+            )
+            st.session_state.receita_bruta_total = rb
+        
+        with col2:
+            imp = st.number_input(
+                "Impostos sobre Vendas (%)",
+                value=float(st.session_state.impostos_medio_perc),
+                min_value=0.0, max_value=100.0, step=0.5, format="%.2f",
+                key="input_impostos_medio",
+            )
+            st.session_state.impostos_medio_perc = imp
+        
+        with col3:
+            com = st.number_input(
+                "Comissão sobre Vendas (%)",
+                value=float(st.session_state.comissao_perc),
+                min_value=0.0, max_value=100.0, step=0.5, format="%.2f",
+                key="input_comissao_perc",
+            )
+            st.session_state.comissao_perc = com
+        
+        # Mostra a RB que está salva nos produtos (só para referência)
+        rb_produtos = sum(
+            num(v.get("qtd", 0)) * num(v.get("preco_unit", 0))
+            for v in st.session_state.vendas
         )
-        st.session_state.impostos_medio_perc = impostos_medio
-    
-    with col3:
-        comissao_perc = st.number_input(
-            "Comissão sobre Vendas (%)",
-            value=float(st.session_state.comissao_perc),
-            min_value=0.0,
-            max_value=100.0,
-            step=0.5,
-            format="%.2f",
-            key="input_comissao_perc",
-            help="Percentual pago como comissão aos vendedores"
-        )
-        st.session_state.comissao_perc = comissao_perc
+        if rb_produtos > 0 and abs(rb_produtos - rb) > 0.01:
+            delta = rb_produtos - rb
+            sinal = "+" if delta > 0 else ""
+            st.caption(
+                f"ℹ️ Os produtos cadastrados somam "
+                f"**{fmtR(rb_produtos)}** em Receita Bruta "
+                f"({sinal}{fmtR(delta)} em relação ao valor manual)."
+            )
     
     st.divider()
     
-    # ─── KPIs calculados ───────────────────────────────────────────────────────
+    # ─── KPIs (parte comum aos dois modos) ─────────────────────────────
     st.subheader("📊 Resumo da Receita")
     
-    deducoes = receita_bruta * impostos_medio / 100
-    comissoes = receita_bruta * comissao_perc / 100
-    receita_liquida = receita_bruta - deducoes - comissoes
-    margem_liq_perc = safe_div(receita_liquida, receita_bruta) * 100
+    rb_atual = st.session_state.receita_bruta_total
+    imp_atual = st.session_state.impostos_medio_perc
+    com_atual = st.session_state.comissao_perc
+    
+    deducoes = rb_atual * imp_atual / 100
+    comissoes = rb_atual * com_atual / 100
+    rl = rb_atual - deducoes - comissoes
+    margem_liq_perc = safe_div(rl, rb_atual) * 100
     
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        render_kpi("Receita Bruta", fmtR(receita_bruta), color="#3fb950")
+        render_kpi("Receita Bruta", fmtR(rb_atual), color="#3fb950")
     with col2:
-        render_kpi("(−) Impostos", fmtR(deducoes), 
-                   sub=f"{fmtP(impostos_medio)} s/ RB",
-                   color="#f85149")
+        render_kpi("(−) Impostos", fmtR(deducoes), sub=f"{fmtP(imp_atual)} s/ RB", color="#f85149")
     with col3:
-        render_kpi("(−) Comissões", fmtR(comissoes),
-                   sub=f"{fmtP(comissao_perc)} s/ RB",
-                   color="#bc8cff")
+        render_kpi("(−) Comissões", fmtR(comissoes), sub=f"{fmtP(com_atual)} s/ RB", color="#bc8cff")
     with col4:
-        render_kpi("= Receita Líquida", fmtR(receita_liquida),
-                   sub=f"{fmtP(margem_liq_perc)} da RB",
-                   color="#58a6ff")
+        render_kpi("= Receita Líquida", fmtR(rl), sub=f"{fmtP(margem_liq_perc)} da RB", color="#58a6ff")
     
-    # ─── Fórmula explicada ─────────────────────────────────────────────────────
     with st.expander("📐 Como é calculado?"):
-        formula_html = (
-            "<div style='background:#1c2330;border:1px solid #30363d;border-radius:8px;"
-            "padding:14px 18px;font-family:IBM Plex Mono,monospace;font-size:13px;"
-            "color:#e6edf3;line-height:1.9;'>"
-            f"Receita Bruta .................................. <span style='color:#3fb950;'>{fmtR(receita_bruta)}</span><br>"
-            f"(−) Impostos ({fmtP(impostos_medio)}) ................ <span style='color:#f85149;'>−{fmtR(deducoes)}</span><br>"
-            f"(−) Comissões ({fmtP(comissao_perc)}) ............... <span style='color:#bc8cff;'>−{fmtR(comissoes)}</span><br>"
-            "<hr style='border:none;border-top:1px solid #30363d;margin:8px 0;'>"
-            f"(=) Receita Líquida ............................ <span style='color:#58a6ff;font-weight:700;'>{fmtR(receita_liquida)}</span>"
-            "</div>"
-            "<p style='margin-top:12px;color:#8d96a0;font-size:13px;'>"
-            "A <strong style='color:#e6edf3;'>Receita Líquida</strong> é a base para o cálculo "
-            "da Margem de Contribuição na DRE."
-            "</p>"
-        )
-        st.markdown(formula_html, unsafe_allow_html=True)
+        st.markdown(f"""
+        <div style='background:#1c2330;border:1px solid #30363d;border-radius:8px;
+                    padding:14px 18px;font-family:IBM Plex Mono,monospace;font-size:13px;
+                    color:#e6edf3;line-height:1.9;'>
+            Receita Bruta .................................. <span style='color:#3fb950;'>{fmtR(rb_atual)}</span><br>
+            (−) Impostos ({fmtP(imp_atual)}) ................ <span style='color:#f85149;'>−{fmtR(deducoes)}</span><br>
+            (−) Comissões ({fmtP(com_atual)}) ............... <span style='color:#bc8cff;'>−{fmtR(comissoes)}</span><br>
+            <hr style='border:none;border-top:1px solid #30363d;margin:8px 0;'>
+            (=) Receita Líquida ............................ <span style='color:#58a6ff;font-weight:700;'>{fmtR(rl)}</span>
+        </div>
+        """, unsafe_allow_html=True)
     
     render_alert(
         "ℹ️ <strong>Próximo passo:</strong> vá até o módulo <strong>💰 Lançamentos</strong> "
-        "para registrar os custos diretos, custos indiretos e despesas do período. "
-        "Esses valores alimentarão automaticamente a DRE.",
-        type="info"
+        "para registrar os custos e despesas do período. Esses valores alimentarão a DRE.",
+        type="info",
     )
 
 def modulo_estoque():
