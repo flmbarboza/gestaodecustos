@@ -475,32 +475,32 @@ def calcular_indicadores(state):
     # ─── VISÃO ABSORÇÃO (por tipo) ────────────────────────────────────────────
     cpv_direto = sum(
         num(lancamentos.get(c["id"], 0))
-        c in plano_contas
+        for c in plano_contas
         if c["tipo"] == "custo_direto"
     )
 
     custos_indiretos = sum(
         num(lancamentos.get(c["id"], 0))
-        c in plano_contas
+        for c in plano_contas
         if c["tipo"] == "custo_indireto"
     )
 
     # Despesas por comportamento (excluindo financeiras) — visão absorção
     despesas_fixas = sum(
         num(lancamentos.get(c["id"], 0))
-        c in plano_contas
+        for c in plano_contas
         if c["tipo"] == "despesa" and c.get("comportamento") == "fixo"
         and not is_conta_financeira(c)
     )
     despesas_variaveis = sum(
         num(lancamentos.get(c["id"], 0))
-        c in plano_contas
+        for c in plano_contas
         if c["tipo"] == "despesa" and c.get("comportamento") == "variavel"
         and not is_conta_financeira(c)
     )
     despesas_semivariaveis = sum(
         num(lancamentos.get(c["id"], 0))
-        c in plano_contas
+        for c in plano_contas
         if c["tipo"] == "despesa" and c.get("comportamento") == "semivariavel"
         and not is_conta_financeira(c)
     )
@@ -508,12 +508,12 @@ def calcular_indicadores(state):
     # Perdas (anormais) e despesas financeiras
     perdas = sum(
         num(lancamentos.get(c["id"], 0))
-        c in plano_contas
+        for c in plano_contas
         if c["tipo"] == "perda"
     )
     despesas_financeiras = sum(
         num(lancamentos.get(c["id"], 0))
-        c in plano_contas
+        for c in plano_contas
         if c["tipo"] == "despesa" and is_conta_financeira(c)
     )
 
@@ -525,7 +525,7 @@ def calcular_indicadores(state):
     # comportamento "variavel"
     custos_variaveis = sum(
         num(lancamentos.get(c["id"], 0))
-        c in plano_contas
+        for c in plano_contas
         if c["tipo"] in ("custo_direto", "custo_indireto")
         and c.get("comportamento") == "variavel"
     )
