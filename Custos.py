@@ -816,7 +816,7 @@ def modulo_plano_contas():
             )
         
         # Controle de versão do uploader para poder resetá-lo
-        if "uploader_version"  st.session_state:
+        if "uploader_version" not in st.session_state:
             st.session_state.uploader_version = 0
         
         # Passo 2: Upload do arquivo
