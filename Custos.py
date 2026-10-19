@@ -1328,6 +1328,8 @@ def modulo_lancamentos():
         st.session_state.lancamentos_pendentes = []   # lista de dicts aguardando revisão
     if "lanc_editor_version" not in st.session_state:
         st.session_state.lanc_editor_version = 0
+    if "mensagem_produto" not in st.session_state:
+    st.session_state.mensagem_produto = None
     
     # Opções de contas formatadas
     opcoes_contas = {c["id"]: f"[{c['tipo']}] {c['nome']}" for c in plano}
@@ -1880,6 +1882,79 @@ def modulo_vendas():
             "⚠️ Nenhum produto cadastrado. Cadastre produtos na aba **📋 Plano de Contas** "
             "ou use apenas *Outras Receitas* abaixo."
         )
+    # ─── Gerenciar produtos (adicionar / excluir) ──────────────────────
+    with st.expander("➕ Adicionar / Remover Produtos", expanded=(len(produtos) == 0)):
+        col1, col2, col3 = st.columns([3, 1, 1])
+        with col1:
+            novo_nome = st.text_input(
+                "Nome do produto",
+                placeholder="Ex: Produto D",
+                key="novo_produto_nome",
+            )
+        with col2:
+            nova_unidade = st.selectbox(
+                "Unidade",
+                options=["un", "kg", "cx", "L", "m", "m²", "m³", "pç"],
+                key="novo_produto_unidade",
+            )
+        with col3:
+            st.write("")  # espaçador
+            st.write("")
+            if st.button("➕ Adicionar", use_container_width=True, key="btn_add_produto"):
+                if novo_nome.strip():
+                    # Gera ID novo
+                    ids_existentes = [p["id"] for p in st.session_state.produtos]
+                    novo_id = (max(ids_existentes) + 1) if ids_existentes else 1
+                    
+                    # Adiciona ao plano de produtos
+                    st.session_state.produtos.append({
+                        "id": novo_id,
+                        "nome": novo_nome.strip(),
+                        "unidade": nova_unidade,
+                    })
+                    
+                    # Cria a linha de venda correspondente (zerada)
+                    st.session_state.vendas.append({
+                        "produto_id": novo_id,
+                        "qtd": 0, "preco_unit": 0, "custo_unit": 0,
+                        "custo_direto": 0, "impostos": 0,
+                    })
+                    
+                    st.session_state.mensagem_produto = f"✅ Produto **{novo_nome}** adicionado."
+                    st.rerun()
+                else:
+                    st.warning("Digite um nome para o produto.")
+        
+        # ─── Lista de produtos com opção de excluir ────────────────────
+        if st.session_state.produtos:
+            st.markdown("---")
+            st.markdown("**Produtos cadastrados:**")
+            
+            for p in st.session_state.produtos:
+                c1, c2, c3 = st.columns([5, 1, 1])
+                with c1:
+                    st.markdown(f"**{p['nome']}** — `{p.get('unidade', 'un')}`")
+                with c2:
+                    st.caption(f"ID {p['id']}")
+                with c3:
+                    if st.button("🗑", key=f"del_produto_{p['id']}", help="Remover produto"):
+                        # Remove o produto
+                        st.session_state.produtos = [
+                            prod for prod in st.session_state.produtos
+                            if prod["id"] != p["id"]
+                        ]
+                        # Remove a linha de venda correspondente
+                        st.session_state.vendas = [
+                            v for v in st.session_state.vendas
+                            if v["produto_id"] != p["id"]
+                        ]
+                        st.session_state.mensagem_produto = f"🗑 Produto **{p['nome']}** removido."
+                        st.rerun()
+    
+    # Mostra mensagem de sucesso pós-rerun
+    if st.session_state.get("mensagem_produto"):
+        st.success(st.session_state.mensagem_produto)
+        st.session_state.mensagem_produto = None
     
     # ═══════════════════════════════════════════════════════════════════
     # SEÇÃO 1 — LANÇAMENTOS DE VENDAS POR PRODUTO
