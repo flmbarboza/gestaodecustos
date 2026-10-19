@@ -14,7 +14,8 @@ import io
 import base64
 from jinja2 import Template
 import json
-
+import os
+        
 # ─── CONFIGURAÇÃO DA PÁGINA ──────────────────────────────────────────────────────
 st.set_page_config(
     page_title="SysCost - Gestão de Custos",
@@ -954,6 +955,7 @@ def modulo_plano_contas():
                                 
                                 # Incrementa versão do uploader para limpar
                                 st.session_state.uploader_version += 1
+                                salvar_estado_arquivo()
                                 st.rerun()
                         
                         with col_btn2:
@@ -1048,6 +1050,7 @@ def modulo_plano_contas():
             })
 
         st.session_state.plano_contas = nova_lista
+        salvar_estado_arquivo()        
         st.rerun()
     
     # ─── SEÇÃO: ADICIONAR CONTA MANUALMENTE ─────────────────────────────────────
@@ -1604,6 +1607,7 @@ def modulo_lancamentos():
                     st.session_state.mensagem_lanc = (
                         f"✅ {n_total} lançamento(s) confirmado(s) e aplicado(s) às contas."
                     )
+                salvar_estado_arquivo()
                 st.rerun()
         
         with col2:
@@ -1730,6 +1734,7 @@ def modulo_lancamentos():
 
             if houve_mudanca:
                 st.session_state.mensagem_lanc = "✅ Lançamentos atualizados."
+                salvar_estado_arquivo()    
                 st.rerun()
 
             # Totais
@@ -1747,6 +1752,7 @@ def modulo_lancamentos():
             if st.button("🗑 Zerar todos os lançamentos", key="btn_zerar_lanc"):
                 st.session_state.lancamentos = {}
                 st.session_state.lanc_editor_version += 1   # ← força novo data_editor
+                salvar_estado_arquivo()
                 st.rerun()
                 
 def modulo_rateio():
@@ -2124,7 +2130,7 @@ def modulo_vendas():
     
     rb_total = rb_produtos + rb_outras
     st.session_state.receita_bruta_total = rb_total
-    
+    salvar_estado_arquivo()
     deducoes = rb_total * imp / 100
     comissoes = rb_total * com / 100
     rl = rb_total - deducoes - comissoes
@@ -3170,19 +3176,57 @@ def importar_estado(conteudo_json):
         f"{n_vendas} venda(s), "
         f"{n_outras} outra(s) receita(s)"
     )
-    
+
+# ─── PERSISTÊNCIA AUTOMÁTICA ─────────────────────────────────────
+
+ARQUIVO_ESTADO = "syscost_estado.json"
+
+def salvar_estado_arquivo():
+    """Grava o estado atual em disco (silenciosamente se falhar)."""
+    try:
+        with open(ARQUIVO_ESTADO, "w", encoding="utf-8") as f:
+            f.write(exportar_estado())
+        return True
+    except Exception as e:
+        # Não interrompe o app por falha de persistência
+        print(f"[SysCost] Falha ao salvar estado: {e}")
+        return False
+
+
+def carregar_estado_arquivo():
+    """Carrega o estado do disco, se existir. Retorna (sucesso, info)."""
+    if not os.path.exists(ARQUIVO_ESTADO):
+        return False, "Arquivo não encontrado."
+    try:
+        with open(ARQUIVO_ESTADO, "r", encoding="utf-8") as f:
+            conteudo = f.read()
+        return importar_estado(conteudo)
+    except Exception as e:
+        return False, f"Falha ao ler arquivo: {e}"
+
+
 # ─── FUNÇÃO PRINCIPAL ───────────────────────────────────────────────────────────
 
 def main():
     """Função principal da aplicação"""
-    
+
     if "initialized" not in st.session_state:
-        estado_inicial = get_initial_state()
-        for key, value in estado_inicial.items():
-            st.session_state[key] = value
-        st.session_state.initialized = True
-        st.session_state.show_criar_criterio = False
-    
+        # ─── Tentativa 1: carregar estado persistido em disco ─────
+        carregou, info = carregar_estado_arquivo()
+        
+        if carregou:
+            st.session_state.initialized = True
+            st.session_state.show_criar_criterio = False
+            st.session_state._estado_carregado_de = info
+        else:
+            # ─── Fallback: inicializa com dados de exemplo ────────
+            estado_inicial = get_initial_state()
+            for key, value in estado_inicial.items():
+                st.session_state[key] = value
+            st.session_state.initialized = True
+            st.session_state.show_criar_criterio = False
+            st.session_state._estado_carregado_de = None
+            
     with st.sidebar:
         st.markdown("""
         <div style="text-align:center;padding:16px 0;">
@@ -3297,6 +3341,7 @@ def main():
                     with col_b:
                         if st.button("❌ Cancelar", use_container_width=True, key="btn_cancelar_estado"):
                             st.session_state.uploader_estado_version += 1
+                            salvar_estado_arquivo()
                             st.rerun()
                 except Exception as e:
                     st.error(f"Erro ao ler arquivo: {str(e)}")
@@ -3314,6 +3359,7 @@ def main():
             for key, value in estado_inicial.items():
                 st.session_state[key] = value
             st.session_state.initialized = True
+            salvar_estado_arquivo()
             st.rerun()
         
         st.caption("SysCost v1.0")
