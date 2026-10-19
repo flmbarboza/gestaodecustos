@@ -2009,32 +2009,57 @@ def modulo_vendas():
     st.divider()
     st.subheader("➕ Outras Receitas")
     st.caption("Receitas não vinculadas a produtos (serviços, aluguéis recebidos, etc.)")
-    
-    df_outras = pd.DataFrame(st.session_state.outras_receitas) if st.session_state.outras_receitas else pd.DataFrame(columns=["descricao", "valor"])
-    if df_outras.empty:
-        df_outras = pd.DataFrame([{"descricao": "", "valor": 0.0}])
-    df_outras_ren = df_outras.rename(columns={"descricao": "Descrição", "valor": "Valor"})
-    
-    edited_outras = st.data_editor(
-        df_outras_ren,
-        column_config={
-            "Descrição": st.column_config.TextColumn("Descrição", width="large"),
-            "Valor": st.column_config.NumberColumn("Valor (R$)", min_value=0.0, step=100.0, format="%.2f"),
-        },
-        use_container_width=True,
-        hide_index=True,
-        num_rows="dynamic",
-        key="outras_receitas_editor",
-    )
-    
-    novas_outras = []
-    for _, row in edited_outras.iterrows():
-        desc = str(row["Descrição"]).strip() if not pd.isna(row["Descrição"]) else ""
-        val = float(row["Valor"]) if not pd.isna(row["Valor"]) else 0.0
-        if desc or val > 0:
-            novas_outras.append({"descricao": desc, "valor": val})
-    st.session_state.outras_receitas = novas_outras
-    rb_outras = sum(o["valor"] for o in novas_outras)
+
+    if not isinstance(st.session_state.outras_receitas, list):
+        st.session_state.outras_receitas = []
+
+    # ─── Botão para adicionar uma linha vazia (edição posterior) ─────
+    col_add, col_del = st.columns([1, 1])
+    with col_add:
+        if st.button("➕ Adicionar linha", use_container_width=True, key="btn_add_outra"):
+            st.session_state.outras_receitas.append({"descricao": "", "valor": 0.0})
+            st.rerun()
+    with col_del:
+        # Botão para limpar todas as outras receitas
+        if st.session_state.outras_receitas:
+            if st.button("🗑 Limpar todas", use_container_width=True, key="btn_limpar_outras"):
+                st.session_state.outras_receitas = []
+                st.rerun()
+
+    # ─── Editor com num_rows="fixed" (sem linha virtual) ─────────────
+    if st.session_state.outras_receitas:
+        df_outras = pd.DataFrame(st.session_state.outras_receitas)
+        df_outras_ren = df_outras.rename(columns={"descricao": "Descrição", "valor": "Valor"})
+
+        edited_outras = st.data_editor(
+            df_outras_ren,
+            column_config={
+                "Descrição": st.column_config.TextColumn("Descrição", width="large"),
+                "Valor": st.column_config.NumberColumn("Valor (R$)", min_value=0.0, step=100.0, format="%.2f"),
+            },
+            use_container_width=True,
+            hide_index=True,
+            num_rows="fixed",   # ← MUDANÇA-CHAVE: sem linha virtual
+            key=f"outras_receitas_editor_{len(st.session_state.outras_receitas)}",  # ← key muda com o número de linhas
+        )
+
+        # Sincroniza (mesma lógica, mas agora recebe linhas reais)
+        novas_outras = []
+        for _, row in edited_outras.iterrows():
+            desc = str(row["Descrição"]).strip() if not pd.isna(row["Descrição"]) else ""
+            val = float(row["Valor"]) if not pd.isna(row["Valor"]) else 0.0
+            if desc or val > 0:
+                novas_outras.append({"descricao": desc, "valor": val})
+            else:
+                # Mantém linhas vazias que o usuário ainda pode querer preencher
+                novas_outras.append({"descricao": "", "valor": 0.0})
+        st.session_state.outras_receitas = novas_outras
+
+        rb_outras = sum(o["valor"] for o in novas_outras)
+    else:
+        st.info("Nenhuma outra receita cadastrada. Clique em **➕ Adicionar linha** para começar.")
+        rb_outras = 0.0
+
     render_kpi("Receita de Outras Fontes", fmtR(rb_outras), color="#bc8cff")
     
     # ═══════════════════════════════════════════════════════════════════
