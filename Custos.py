@@ -284,7 +284,8 @@ def is_conta_financeira(conta):
         "iof", "câmbio", "cambio", "tarifa", "encargo financeiro",
         "desconto financeiro", "rendimento", "aplicação financeira",
     ]
-    return any(t in nome t in termos)
+    return any(t in nome for t in termos)
+
     
 # ─── DADOS INICIAIS ──────────────────────────────────────────────────────────────
 
