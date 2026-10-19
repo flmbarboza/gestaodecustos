@@ -1440,8 +1440,8 @@ def modulo_lancamentos():
                     st.success(f"✅ {len(pendentes_ok)} lançamento(s) lido(s). **Revise as sugestões abaixo.**")
                     st.session_state.uploader_lanc_version += 1
                     st.rerun()
-                else:
-                    st.warning("⚠️ Nenhum lançamento válido encontrado na planilha.")
+            else:
+                st.warning("⚠️ Nenhum lançamento válido encontrado na planilha.")
 
         
         except Exception as e:
