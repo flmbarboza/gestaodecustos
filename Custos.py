@@ -595,14 +595,14 @@ def calcular_indicadores(state):
     qtd_total = 0
     ms_qtd = 0
     
-    # ─── RESULTADO POR ABSORÇÃO ───────────────────────────────────────────────
+        # ─── RESULTADO POR ABSORÇÃO ───────────────────────────────
     cpv_absorcao = cpv_direto + custos_indiretos
     lb_absorcao = rl - cpv_absorcao
-    lo_absorcao = lb_absorcao - despesas_operacionais
-    resultado_antes_ir = lo_absorcao - despesas_financeiras - perdas
-    ircsll_abs = lo_absorcao * 0.34 if lo_absorcao > 0 else 0
-    ll_absorcao = lo_absorcao - ircsll_abs
-    
+    lo_absorcao = lb_absorcao - despesas_operacionais                 # EBIT
+    resultado_antes_ir = lo_absorcao - despesas_financeiras - perdas  # LAIR
+    ircsll_abs = resultado_antes_ir * 0.34 if resultado_antes_ir > 0 else 0
+    ll_absorcao = resultado_antes_ir - ircsll_abs                     # LL
+        
     # ─── RESULTADO POR VARIÁVEL ───────────────────────────────────────────────
     lo_variavel = mc - custos_fixos - perdas
     resultado_antes_ir_var = lo_variavel - despesas_financeiras
