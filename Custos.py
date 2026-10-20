@@ -2701,7 +2701,7 @@ def modulo_cvl():
             "Resultado Operacional (EBIT)",
             fmtR(ebit_val),
             sub="Denominador do GAO",
-            color="#3fb950" if ebit_val  0 else "#f85149",
+            color="#3fb950" if ebit_val >= 0 else "#f85149",
         )
     
     # Explicação didática
