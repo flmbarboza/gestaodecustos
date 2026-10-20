@@ -3200,7 +3200,7 @@ def modulo_laudo():
         href = f'<a href="data:text/html;base64,{b64}" download="{nome_arquivo}" style="display:inline-block;background:#58a6ff;color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:500;">⬇ Baixar Laudo Completo (HTML)</a>'
         st.markdown(href, unsafe_allow_html=True)
 
-     if st.button("📄 Gerar Laudo Completo", use_container_width=True):
+    if st.button("📄 Gerar Laudo Completo", use_container_width=True):
         with st.spinner("Gerando laudo com gráficos... isso pode levar alguns segundos."):
             laudo_html = criar_laudo_html(st.session_state, indicadores)
         
