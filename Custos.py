@@ -2483,7 +2483,7 @@ def modulo_cvl():
         # MC proporcional
         mc_perc_dec = indicadores["mc_perc"] / 100
         mc_sim = [r * mc_perc_dec for r in receitas]
-        custo_fixo = [indicadores["custos_fixos"]] * 100
+        custo_fixo = [indicadores["custos_fixos_total"]] * 100
         custo_total = [cf + (r - r * mc_perc_dec) * 0 for cf, r in zip(custo_fixo, receitas)]
         # Linha de lucro = MC - Custos Fixos
         lucro = [mc - cf for mc, cf in zip(mc_sim, custo_fixo)]
