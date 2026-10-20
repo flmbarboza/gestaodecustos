@@ -577,7 +577,7 @@ def _gerar_graficos_laudo(state, indicadores):
     # ─── Gráfico 4: Evolução dos Indicadores (se multi-período) ─
     try:
         periodos = state.get("periodos", [])
-        if len(periodos)  2:
+        if len(periodos) >= 2:
             nomes = [p["nome"] for p in periodos]
             receitas = []
             lucros = []
