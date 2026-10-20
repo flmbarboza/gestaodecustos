@@ -3033,152 +3033,473 @@ def modulo_laudo():
         )
     
     if st.button("📄 Gerar Laudo Completo", use_container_width=True):
-        render_alert("📄 Laudo gerado com sucesso! Use a função de impressão do navegador (Ctrl+P) para salvar como PDF.", type="success")
+        render_alert(
+            "📄 Laudo completo gerado! Use a função de impressão do navegador (Ctrl+P) "
+            "para salvar como PDF, ou clique no botão abaixo para baixar como HTML.",
+            type="success",
+        )
         
         laudo_html = criar_laudo_html(st.session_state, indicadores)
         b64 = base64.b64encode(laudo_html.encode()).decode()
-        href = f'<a href="data:text/html;base64,{b64}" download="laudo_{st.session_state.nome_empresa.replace(" ", "_")}.html" style="display:inline-block;background:#58a6ff;color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:500;">⬇ Baixar Laudo (HTML)</a>'
+        nome_arquivo = f"laudo_{st.session_state.nome_empresa.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M')}.html"
+        href = f'<a href="data:text/html;base64,{b64}" download="{nome_arquivo}" style="display:inline-block;background:#58a6ff;color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:500;">⬇ Baixar Laudo Completo (HTML)</a>'
         st.markdown(href, unsafe_allow_html=True)
 
 def criar_laudo_html(state, indicadores):
-    """Cria o HTML do laudo para exportação"""
+    """Cria o HTML do laudo completo — todas as seções do app."""
     
+    plano = state.get("plano_contas", [])
+    lancamentos = state.get("lancamentos", {})
+    vendas = state.get("vendas", [])
+    produtos = state.get("produtos", [])
+    outras_receitas = state.get("outras_receitas", [])
+    estoque_inicial = state.get("estoque_inicial", [])
+    estoque_final = state.get("estoque_final", [])
+    producao_mes = state.get("producao_mes", [])
+    
+    # ─── 1) PLANO DE CONTAS — resumo por tipo ─────────────────────
+    tipos_pt = {
+        "receita": "Receitas",
+        "custo_direto": "Custos Diretos",
+        "custo_indireto": "Custos Indiretos",
+        "despesa": "Despesas",
+        "investimento": "Investimentos",
+        "perda": "Perdas",
+    }
+    resumo_plano = {}
+    for t, label in tipos_pt.items():
+        contas = [c for c in plano if c["tipo"] == t]
+        resumo_plano[label] = {
+            "qtd": len(contas),
+            "contas": [c["nome"] for c in contas],
+        }
+    
+    # ─── 2) LANÇAMENTOS — consolidado por conta ───────────────────
+    lanc_por_tipo = {t: [] for t in tipos_pt}
+    total_lanc = 0
+    for c in plano:
+        if c["tipo"] == "receita":
+            continue
+        v = num(lancamentos.get(c["id"], 0))
+        if v == 0:
+            continue
+        total_lanc += v
+        lanc_por_tipo[c["tipo"]].append({
+            "conta": c["nome"],
+            "comportamento": c.get("comportamento", "---"),
+            "valor": v,
+        })
+    
+    # ─── 3) VENDAS — produtos + outras receitas ───────────────────
+    vendas_data = []
+    rb_produtos = 0
+    for v in vendas:
+        p = next((x for x in produtos if x["id"] == v["produto_id"]), None)
+        if not p:
+            continue
+        rec = num(v["qtd"]) * num(v["preco_unit"])
+        rb_produtos += rec
+        vendas_data.append({
+            "produto": p["nome"],
+            "unidade": p.get("unidade", "un"),
+            "qtd": v["qtd"],
+            "preco": v["preco_unit"],
+            "impostos": v["impostos"],
+            "custo": v["custo_unit"],
+            "receita": rec,
+        })
+    rb_outras = sum(num(o.get("valor", 0)) for o in outras_receitas)
+    
+    # ─── 4) ESTOQUE ───────────────────────────────────────────────
+    estoque_data = []
+    for i, p in enumerate(produtos):
+        ei = estoque_inicial[i] if i < len(estoque_inicial) else {"qtd": 0, "custo_medio": 0}
+        ef = estoque_final[i] if i < len(estoque_final) else {"qtd": 0, "custo_medio": 0}
+        prod = producao_mes[i] if i < len(producao_mes) else {"qtd": 0}
+        venda = vendas[i] if i < len(vendas) else {"custo_unit": 0}
+        ei_valor = num(ei["qtd"]) * num(ei["custo_medio"])
+        ef_valor = num(ef["qtd"]) * num(ef["custo_medio"])
+        cpv = ei_valor + num(prod["qtd"]) * num(venda["custo_unit"]) - ef_valor
+        estoque_data.append({
+            "produto": p["nome"],
+            "ei_qtd": ei["qtd"],
+            "ei_valor": ei_valor,
+            "producao": prod["qtd"],
+            "ef_qtd": ef["qtd"],
+            "ef_valor": ef_valor,
+            "cpv": cpv,
+        })
+    
+    # ─── 5) PRECIFICAÇÃO ─────────────────────────────────────────
+    precificacao_data = []
+    for v in vendas:
+        p = next((x for x in produtos if x["id"] == v["produto_id"]), None)
+        if not p:
+            continue
+        lucro = state.get("markup_perc", {}).get(v["produto_id"], 30)
+        divisor = 1 - v["impostos"] / 100 - lucro / 100
+        preco_mk = v["custo_unit"] / divisor if divisor > 0 else 0
+        pm = state.get("preco_mercado", {}).get(v["produto_id"], v["preco_unit"])
+        precificacao_data.append({
+            "produto": p["nome"],
+            "custo": v["custo_unit"],
+            "preco_markup": preco_mk,
+            "preco_mercado": pm,
+            "preco_atual": v["preco_unit"],
+        })
+    
+    # ─── 6) DRE ABSORÇÃO ─────────────────────────────────────────
+    dre_abs = [
+        ("Receita Bruta de Vendas", indicadores["rb"]),
+        ("(−) Deduções e Impostos", -indicadores["deducoes"]),
+        ("(−) Comissões", -indicadores["comissoes"]),
+        ("= Receita Líquida", indicadores["rl"]),
+        ("(−) Custos Diretos", -indicadores["cpv_direto"]),
+        ("(−) Custos Indiretos", -indicadores["custos_indiretos"]),
+        ("= Lucro Bruto", indicadores["lb_absorcao"]),
+        ("(−) Despesas Operacionais", -indicadores["despesas_operacionais"]),
+        ("= EBIT", indicadores["lo_absorcao"]),
+        ("(−) Despesas Financeiras", -indicadores["despesas_financeiras"]),
+        ("(−) Outras Despesas", -indicadores["perdas"]),
+        ("= LAIR", indicadores["resultado_antes_ir"]),
+        ("(−) IR/CSLL (34%)", -indicadores["ircsll_abs"]),
+        ("= Lucro Líquido", indicadores["ll_absorcao"]),
+    ]
+    
+    # ─── 7) DRE VARIÁVEL ─────────────────────────────────────────
+    dre_var = [
+        ("Receita Bruta de Vendas", indicadores["rb"]),
+        ("(−) Deduções e Impostos", -indicadores["deducoes"]),
+        ("(−) Comissões", -indicadores["comissoes"]),
+        ("= Receita Líquida", indicadores["rl"]),
+        ("(−) Custos Variáveis", -indicadores["custos_variaveis"]),
+        ("(−) Despesas Variáveis", -indicadores["despesas_variaveis"]),
+        ("= Margem de Contribuição", indicadores["mc"]),
+        ("MC %", indicadores["mc_perc"]),
+        ("(−) Custos Fixos", -indicadores["custos_fixos_op"]),
+        ("(−) Custos Semivariáveis", -indicadores["custos_semivariaveis"]),
+        ("(−) Despesas Fixas", -indicadores["despesas_fixas"]),
+        ("(−) Despesas Semivariáveis", -indicadores["despesas_semivariaveis"]),
+        ("= EBIT", indicadores["lo_variavel"]),
+        ("(−) Despesas Financeiras", -indicadores["despesas_financeiras"]),
+        ("(−) Outras Despesas", -indicadores["perdas"]),
+        ("= LAIR", indicadores["resultado_antes_ir_var"]),
+        ("(−) IR/CSLL (34%)", -indicadores["ircsll_var"]),
+        ("= Lucro Líquido", indicadores["ll_variavel"]),
+    ]
+    
+    # ─── 8) CVL ──────────────────────────────────────────────────
+    cvl_data = {
+        "rl": indicadores["rl"],
+        "custos_var": indicadores["custos_var"],
+        "mc": indicadores["mc"],
+        "mc_perc": indicadores["mc_perc"],
+        "custos_fixos_total": indicadores["custos_fixos_total"],
+        "pec": indicadores["pec"],
+        "pef": indicadores["pef"],
+        "pee": indicadores["pee"],
+        "ms_abs": indicadores["ms_abs"],
+        "ms_perc": indicadores["ms_perc"],
+        "gao": indicadores.get("gao", 0),
+    }
+    
+    # ─── Monta o template ────────────────────────────────────────
     template_str = """
     <!DOCTYPE html>
     <html lang="pt-BR">
     <head>
         <meta charset="UTF-8">
-        <title>Laudo - {{ nome_empresa }}</title>
+        <title>Laudo Completo - {{ nome_empresa }}</title>
         <style>
             * { box-sizing: border-box; margin: 0; padding: 0; }
-            body { font-family: Arial, sans-serif; font-size: 13px; color: #1a1a1a; background: #fff; padding: 40px; max-width: 900px; margin: 0 auto; }
+            body { font-family: Arial, sans-serif; font-size: 12px; color: #1a1a1a; background: #fff; padding: 30px; max-width: 1000px; margin: 0 auto; }
             h1 { font-size: 20px; color: #1F4E79; border-bottom: 3px solid #1F4E79; padding-bottom: 10px; margin-bottom: 6px; }
-            h2 { font-size: 14px; color: #1F4E79; margin: 24px 0 10px; border-left: 4px solid #1F4E79; padding-left: 10px; }
-            .subtitle { color: #666; font-size: 12px; margin-bottom: 24px; }
-            .meta { display: flex; gap: 32px; margin-bottom: 20px; background: #f4f8fc; border-radius: 6px; padding: 14px 18px; flex-wrap: wrap; }
+            h2 { font-size: 14px; color: #1F4E79; margin: 26px 0 10px; border-left: 4px solid #1F4E79; padding-left: 10px; page-break-after: avoid; }
+            h3 { font-size: 12px; color: #333; margin: 14px 0 6px; }
+            .subtitle { color: #666; font-size: 12px; margin-bottom: 22px; }
+            .meta { display: flex; gap: 28px; margin-bottom: 20px; background: #f4f8fc; border-radius: 6px; padding: 12px 16px; flex-wrap: wrap; }
             .meta-item { display: flex; flex-direction: column; gap: 2px; }
-            .meta-label { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: #888; }
-            .meta-value { font-size: 13px; font-weight: 700; color: #1F4E79; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
-            th { background: #EAF1F8; color: #1F4E79; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; padding: 7px 12px; text-align: left; }
-            td { padding: 6px 12px; border-bottom: 1px solid #eee; }
+            .meta-label { font-size: 9px; text-transform: uppercase; letter-spacing: .06em; color: #888; }
+            .meta-value { font-size: 12px; font-weight: 700; color: #1F4E79; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 6px; font-size: 11px; }
+            th { background: #EAF1F8; color: #1F4E79; font-size: 10px; text-transform: uppercase; letter-spacing: .04em; padding: 6px 10px; text-align: left; }
+            td { padding: 5px 10px; border-bottom: 1px solid #eee; }
             .text-right { text-align: right; }
-            .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 6px; }
-            .kpi { border: 1px solid #dde3ec; border-radius: 6px; padding: 12px 14px; }
-            .kpi-label { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: #888; margin-bottom: 3px; }
-            .kpi-value { font-size: 16px; font-weight: 700; }
-            .section-box { border: 1px solid #dde3ec; border-radius: 6px; padding: 14px 16px; margin-bottom: 10px; white-space: pre-wrap; line-height: 1.7; color: #333; min-height: 40px; }
-            .footer { margin-top: 36px; padding-top: 14px; border-top: 1px solid #dde3ec; display: flex; justify-content: space-between; color: #999; font-size: 11px; }
-            .assinatura { margin-top: 50px; border-top: 1px solid #555; display: inline-block; padding-top: 6px; min-width: 220px; color: #555; font-size: 12px; text-align: center; }
-            @media print { body { padding: 20px; } }
-            .pos { color: #1a7a3a; } .neg { color: #c0392b; } .neu { color: #666; }
             .mono { font-family: 'Courier New', monospace; }
+            .total-row { font-weight: 700; background: #f9fafb; }
+            .section-box { border: 1px solid #dde3ec; border-radius: 6px; padding: 12px 14px; margin-bottom: 10px; white-space: pre-wrap; line-height: 1.6; color: #333; min-height: 30px; font-size: 11px; }
+            .footer { margin-top: 30px; padding-top: 12px; border-top: 1px solid #dde3ec; display: flex; justify-content: space-between; color: #999; font-size: 10px; }
+            .assinatura { margin-top: 40px; border-top: 1px solid #555; display: inline-block; padding-top: 5px; min-width: 200px; color: #555; font-size: 11px; text-align: center; }
+            .pos { color: #1a7a3a; } .neg { color: #c0392b; } .neu { color: #666; }
+            .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 10px; }
+            .kpi { border: 1px solid #dde3ec; border-radius: 6px; padding: 10px 12px; }
+            .kpi-label { font-size: 9px; text-transform: uppercase; letter-spacing: .05em; color: #888; margin-bottom: 2px; }
+            .kpi-value { font-size: 14px; font-weight: 700; }
+            @media print { body { padding: 15px; } h2 { page-break-after: avoid; } }
         </style>
     </head>
     <body>
         <h1>LAUDO DE ANÁLISE ECONÔMICO-FINANCEIRA</h1>
-        <p class="subtitle">Sys_Cost — Sistema de Apuração de Resultados e Gestão de Custos</p>
+        <p class="subtitle">SysCost — Sistema de Apuração de Resultados e Gestão de Custos</p>
         
         <div class="meta">
             <div class="meta-item"><span class="meta-label">Empresa</span><span class="meta-value">{{ nome_empresa }}</span></div>
             <div class="meta-item"><span class="meta-label">Período</span><span class="meta-value">{{ periodo }}</span></div>
-            <div class="meta-item"><span class="meta-label">Regime Tributário</span><span class="meta-value">{{ regime }}</span></div>
+            <div class="meta-item"><span class="meta-label">Regime</span><span class="meta-value">{{ regime }}</span></div>
             <div class="meta-item"><span class="meta-label">Analista</span><span class="meta-value">{{ laudo.analista or "—" }}</span></div>
-            <div class="meta-item"><span class="meta-label">Data do Laudo</span><span class="meta-value">{{ laudo.data }}</span></div>
+            <div class="meta-item"><span class="meta-label">Data</span><span class="meta-value">{{ laudo.data }}</span></div>
         </div>
         
-        <h2>1. Indicadores Consolidados</h2>
+        <h2>1. Plano de Contas</h2>
         <table>
-            <thead><tr><th>Indicador</th><th class="text-right">Valor</th></tr></thead>
+            <thead><tr><th>Tipo</th><th class="text-right">Qtd</th><th>Contas</th></tr></thead>
             <tbody>
-                {% for label, value in indicadores_lista %}
-                <tr><td>{{ label }}</td><td class="text-right mono">{{ value }}</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        
-        <h2>2. Rentabilidade por Produto</h2>
-        <table>
-            <thead><tr><th>Produto</th><th class="text-right">Qtd Vendida</th><th class="text-right">Receita</th><th class="text-right">CMV</th><th class="text-right">Margem Bruta</th></tr></thead>
-            <tbody>
-                {% for p in produtos %}
+                {% for tipo, dados in resumo_plano.items() %}
                 <tr>
-                    <td>{{ p.nome }}</td>
-                    <td class="text-right mono">{{ p.qtd }}</td>
-                    <td class="text-right mono">{{ p.receita }}</td>
-                    <td class="text-right mono">{{ p.cmv }}</td>
-                    <td class="text-right mono {{ 'pos' if p.margem >= 0 else 'neg' }}">{{ p.margem_pct }}</td>
+                    <td><strong>{{ tipo }}</strong></td>
+                    <td class="text-right mono">{{ dados.qtd }}</td>
+                    <td class="neu">{{ dados.contas|join(', ') }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
         
-        <h2>3. Situação Geral da Empresa</h2>
+        <h2>2. Lançamentos por Tipo</h2>
+        {% for tipo, itens in lanc_por_tipo.items() %}
+            {% if itens %}
+            <h3>{{ tipo }}</h3>
+            <table>
+                <thead><tr><th>Conta</th><th>Comportamento</th><th class="text-right">Valor</th></tr></thead>
+                <tbody>
+                    {% for it in itens %}
+                    <tr>
+                        <td>{{ it.conta }}</td>
+                        <td class="neu">{{ it.comportamento }}</td>
+                        <td class="text-right mono">{{ it.valor_fmt }}</td>
+                    </tr>
+                    {% endfor %}
+                    <tr class="total-row">
+                        <td colspan="2">Subtotal {{ tipo }}</td>
+                        <td class="text-right mono">{{ itens|sum(attribute='valor')|fmtR }}</td>
+                    </tr>
+                </tbody>
+            </table>
+            {% endif %}
+        {% endfor %}
+        
+        <h2>3. Vendas e Receitas</h2>
+        <h3>3.1 Produtos</h3>
+        <table>
+            <thead><tr><th>Produto</th><th class="text-right">Qtd</th><th class="text-right">Preço</th><th class="text-right">Impostos %</th><th class="text-right">Custo Unit.</th><th class="text-right">Receita</th></tr></thead>
+            <tbody>
+                {% for v in vendas_data %}
+                <tr>
+                    <td>{{ v.produto }}</td>
+                    <td class="text-right mono">{{ v.qtd_fmt }}</td>
+                    <td class="text-right mono">{{ v.preco_fmt }}</td>
+                    <td class="text-right mono">{{ v.impostos_fmt }}</td>
+                    <td class="text-right mono">{{ v.custo_fmt }}</td>
+                    <td class="text-right mono">{{ v.receita_fmt }}</td>
+                </tr>
+                {% endfor %}
+                <tr class="total-row">
+                    <td colspan="5">Subtotal Produtos</td>
+                    <td class="text-right mono">{{ rb_produtos_fmt }}</td>
+                </tr>
+            </tbody>
+        </table>
+        <h3>3.2 Outras Receitas</h3>
+        <table>
+            <thead><tr><th>Descrição</th><th class="text-right">Valor</th></tr></thead>
+            <tbody>
+                {% for o in outras_receitas %}
+                <tr><td>{{ o.descricao or "—" }}</td><td class="text-right mono">{{ o.valor_fmt }}</td></tr>
+                {% endfor %}
+                <tr class="total-row">
+                    <td>Subtotal Outras Receitas</td>
+                    <td class="text-right mono">{{ rb_outras_fmt }}</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <h2>4. Apuração do Estoque</h2>
+        <table>
+            <thead>
+                <tr><th>Produto</th><th class="text-right">EI Qtd</th><th class="text-right">EI Valor</th><th class="text-right">Produção</th><th class="text-right">EF Qtd</th><th class="text-right">EF Valor</th><th class="text-right">CPV</th></tr>
+            </thead>
+            <tbody>
+                {% for e in estoque_data %}
+                <tr>
+                    <td>{{ e.produto }}</td>
+                    <td class="text-right mono">{{ e.ei_qtd_fmt }}</td>
+                    <td class="text-right mono">{{ e.ei_valor_fmt }}</td>
+                    <td class="text-right mono">{{ e.producao_fmt }}</td>
+                    <td class="text-right mono">{{ e.ef_qtd_fmt }}</td>
+                    <td class="text-right mono">{{ e.ef_valor_fmt }}</td>
+                    <td class="text-right mono">{{ e.cpv_fmt }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        <h2>5. DRE — Custeio por Absorção</h2>
+        <table>
+            <thead><tr><th>Linha</th><th class="text-right">Valor</th></tr></thead>
+            <tbody>
+                {% for label, value in dre_abs %}
+                <tr>
+                    <td {% if label.startswith('=') %}style="font-weight:700;"{% endif %}>{{ label }}</td>
+                    <td class="text-right mono {% if value < 0 %}neg{% elif value > 0 %}pos{% endif %}" {% if label.startswith('=') %}style="font-weight:700;"{% endif %}>{{ value_fmt }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        <h2>6. DRE — Custeio Variável</h2>
+        <table>
+            <thead><tr><th>Linha</th><th class="text-right">Valor</th></tr></thead>
+            <tbody>
+                {% for label, value in dre_var %}
+                <tr>
+                    <td {% if label.startswith('=') %}style="font-weight:700;"{% endif %}>{{ label }}</td>
+                    <td class="text-right mono {% if value < 0 %}neg{% elif value > 0 %}pos{% endif %}" {% if label.startswith('=') %}style="font-weight:700;"{% endif %}>{{ value_fmt }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        <h2>7. Análise CVL — Custo, Volume e Lucro</h2>
+        <div class="kpi-grid">
+            <div class="kpi"><div class="kpi-label">Receita Líquida</div><div class="kpi-value mono">{{ cvl.rl_fmt }}</div></div>
+            <div class="kpi"><div class="kpi-label">MC</div><div class="kpi-value mono">{{ cvl.mc_fmt }}</div></div>
+            <div class="kpi"><div class="kpi-label">MC %</div><div class="kpi-value mono">{{ cvl.mc_perc_fmt }}</div></div>
+            <div class="kpi"><div class="kpi-label">GAO</div><div class="kpi-value mono">{{ cvl.gao_fmt }}</div></div>
+        </div>
+        <table>
+            <thead><tr><th>Indicador</th><th class="text-right">Valor</th></tr></thead>
+            <tbody>
+                <tr><td>PE Financeiro (PEF)</td><td class="text-right mono">{{ cvl.pef_fmt }}</td></tr>
+                <tr><td>PE Contábil (PEC)</td><td class="text-right mono">{{ cvl.pec_fmt }}</td></tr>
+                <tr><td>PE Econômico (PEE)</td><td class="text-right mono">{{ cvl.pee_fmt }}</td></tr>
+                <tr><td>Margem de Segurança R$</td><td class="text-right mono {{ 'pos' if cvl.ms_abs >= 0 else 'neg' }}">{{ cvl.ms_abs_fmt }}</td></tr>
+                <tr><td>Margem de Segurança %</td><td class="text-right mono {{ 'pos' if cvl.ms_perc >= 0 else 'neg' }}">{{ cvl.ms_perc_fmt }}</td></tr>
+            </tbody>
+        </table>
+        
+        <h2>8. Precificação</h2>
+        <table>
+            <thead><tr><th>Produto</th><th class="text-right">Custo Unit.</th><th class="text-right">Preço Mark-up</th><th class="text-right">Preço Mercado</th><th class="text-right">Preço Atual</th></tr></thead>
+            <tbody>
+                {% for p in precificacao_data %}
+                <tr>
+                    <td>{{ p.produto }}</td>
+                    <td class="text-right mono">{{ p.custo_fmt }}</td>
+                    <td class="text-right mono">{{ p.preco_markup_fmt }}</td>
+                    <td class="text-right mono">{{ p.preco_mercado_fmt }}</td>
+                    <td class="text-right mono">{{ p.preco_atual_fmt }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        <h2>9. Conclusões e Análise</h2>
+        
+        <h3>9.1 Situação Geral</h3>
         <div class="section-box">{{ laudo.situacao_geral or "(não preenchido)" }}</div>
         
-        <h2>4. Pontos Fortes</h2>
+        <h3>9.2 Pontos Fortes</h3>
         <div class="section-box">{{ laudo.pontos_fortes or "(não preenchido)" }}</div>
         
-        <h2>5. Pontos Fracos / Riscos</h2>
+        <h3>9.3 Pontos Fracos / Riscos</h3>
         <div class="section-box">{{ laudo.pontos_fracos or "(não preenchido)" }}</div>
         
-        <h2>6. Recomendações</h2>
+        <h3>9.4 Recomendações</h3>
         <div class="section-box">{{ laudo.recomendacoes or "(não preenchido)" }}</div>
         
-        <h2>7. Observações Adicionais</h2>
+        <h3>9.5 Observações Adicionais</h3>
         <div class="section-box">{{ laudo.observacoes or "(não preenchido)" }}</div>
         
-        <div style="margin-top:40px;">
-            <div class="assinatura">{{ laudo.analista or "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" }}<br/>Analista Responsável</div>
+        <div style="margin-top:36px;">
+            <div class="assinatura">{{ laudo.analista or "&nbsp;" }}<br/>Analista Responsável</div>
         </div>
         
         <div class="footer">
-            <span>Sys_Cost</span>
+            <span>SysCost — Laudo Completo</span>
             <span>Gerado em {{ data_atual }}</span>
         </div>
     </body>
     </html>
     """
     
-    produtos_data = []
-    for v in state["vendas"]:
-        produto = next((p for p in state["produtos"] if p["id"] == v["produto_id"]), None)
-        if produto:
-            rec = num(v["qtd"]) * num(v["preco_unit"])
-            cmv = num(v["qtd"]) * num(v["custo_unit"])
-            margem = (rec - cmv) / rec * 100 if rec > 0 else 0
-            produtos_data.append({
-                "nome": produto["nome"],
-                "qtd": fmt(v["qtd"], 0),
-                "receita": fmtR(rec),
-                "cmv": fmtR(cmv),
-                "margem": margem,
-                "margem_pct": fmtP(margem),
-            })
+    # ─── Formata os dados para o template ────────────────────────
+    for itens in lanc_por_tipo.values():
+        for it in itens:
+            it["valor_fmt"] = fmtR(it["valor"])
     
-    indicadores_lista = [
-        ("Receita Bruta", fmtR(indicadores["rb"])),
-        ("Receita Líquida", fmtR(indicadores["rl"])),
-        ("CMV / CPV Total", fmtR(indicadores["cpv_direto"])),
-        ("Margem de Contribuição", f"{fmtR(indicadores['mc'])} ({fmtP(indicadores['mc_perc'])})"),
-        ("Custos Fixos", fmtR(indicadores["custos_fixos"])),
-        ("PE Contábil", fmtR(indicadores["pec"])),
-        ("Margem de Segurança", fmtP(indicadores["ms_perc"])),
-        ("Lucro Líquido (Absorção)", fmtR(indicadores["ll_absorcao"])),
-        ("Lucro Líquido (Variável)", fmtR(indicadores["ll_variavel"])),
-    ]
+    for v in vendas_data:
+        v["qtd_fmt"] = fmt(v["qtd"], 0)
+        v["preco_fmt"] = fmtR(v["preco"])
+        v["impostos_fmt"] = fmtP(v["impostos"])
+        v["custo_fmt"] = fmtR(v["custo"])
+        v["receita_fmt"] = fmtR(v["receita"])
+    
+    for o in outras_receitas:
+        o["valor_fmt"] = fmtR(num(o.get("valor", 0)))
+    
+    for e in estoque_data:
+        e["ei_qtd_fmt"] = fmt(e["ei_qtd"], 0)
+        e["ei_valor_fmt"] = fmtR(e["ei_valor"])
+        e["producao_fmt"] = fmt(e["producao"], 0)
+        e["ef_qtd_fmt"] = fmt(e["ef_qtd"], 0)
+        e["ef_valor_fmt"] = fmtR(e["ef_valor"])
+        e["cpv_fmt"] = fmtR(e["cpv"])
+    
+    for p in precificacao_data:
+        p["custo_fmt"] = fmtR(p["custo"])
+        p["preco_markup_fmt"] = fmtR(p["preco_markup"])
+        p["preco_mercado_fmt"] = fmtR(p["preco_mercado"])
+        p["preco_atual_fmt"] = fmtR(p["preco_atual"])
+    
+    def _fmt_dre(dre):
+        return [
+            (label, fmtR(value) if "MC %" not in label else fmtP(value))
+            for label, value in dre
+        ]
+    
+    cvl_fmt = {
+        "rl_fmt": fmtR(cvl_data["rl"]),
+        "mc_fmt": fmtR(cvl_data["mc"]),
+        "mc_perc_fmt": fmtP(cvl_data["mc_perc"]),
+        "gao_fmt": f"{fmt(cvl_data['gao'], 2)}×",
+        "pec_fmt": fmtR(cvl_data["pec"]),
+        "pef_fmt": fmtR(cvl_data["pef"]),
+        "pee_fmt": fmtR(cvl_data["pee"]),
+        "ms_abs_fmt": fmtR(cvl_data["ms_abs"]),
+        "ms_perc_fmt": fmtP(cvl_data["ms_perc"]),
+        "ms_abs": cvl_data["ms_abs"],
+        "ms_perc": cvl_data["ms_perc"],
+    }
     
     template = Template(template_str)
+    template.environment.filters["fmtR"] = fmtR
     html = template.render(
-        nome_empresa=state["nome_empresa"],
-        periodo=state["periodo"],
-        regime=state["regime"],
-        laudo=state["laudo"],
-        indicadores_lista=indicadores_lista,
-        produtos=produtos_data,
+        nome_empresa=state.get("nome_empresa", "—"),
+        periodo=state.get("periodo", "—"),
+        regime=state.get("regime", "—"),
+        laudo=state.get("laudo", {}),
+        resumo_plano=resumo_plano,
+        lanc_por_tipo=lanc_por_tipo,
+        vendas_data=vendas_data,
+        outras_receitas=outras_receitas,
+        rb_produtos_fmt=fmtR(rb_produtos),
+        rb_outras_fmt=fmtR(rb_outras),
+        estoque_data=estoque_data,
+        dre_abs=[(l, fmtR(v) if "MC %" not in l else fmtP(v)) for l, v in dre_abs],
+        dre_var=[(l, fmtR(v) if "MC %" not in l else fmtP(v)) for l, v in dre_var],
+        cvl=cvl_fmt,
+        precificacao_data=precificacao_data,
         data_atual=datetime.now().strftime("%d/%m/%Y %H:%M"),
     )
-    
     return html
 
 def modulo_info():
