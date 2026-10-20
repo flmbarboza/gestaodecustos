@@ -605,7 +605,7 @@ def calcular_indicadores(state):
         
     # ─── RESULTADO POR VARIÁVEL ───────────────────────────────────────────────
     lo_variavel = mc - custos_fixos
-    resultado_antes_ir_var = lo_variavel - despesas_financeiras
+    resultado_antes_ir_var = lo_variavel - despesas_financeiras - perdas
     ircsll_var = resultado_antes_ir_var * 0.34 if resultado_antes_ir_var > 0 else 0
     ll_variavel = resultado_antes_ir_var - ircsll_var    
     return {
