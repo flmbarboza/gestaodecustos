@@ -575,11 +575,11 @@ def calcular_indicadores(state):
         + despesas_semivariaveis
     )
 
-    # Fixos totais (com financeiras) — usados no PEC e no PEE
+    # Fixos totais (com financeiras) — usados no  e no PEE
     custos_fixos_total = custos_fixos + despesas_financeiras + perdas
 
     # Fixos desembolsáveis (para o PE Financeiro) — exclui apenas depreciação
-    custos_fixos_desembolsaveis = custos_fixos_total - depreciacao
+    custos_fixos_desembolsaveis = custos_fixos_total - depreciacao - amortizacao
 
     # ─── PONTOS DE EQUILÍBRIO ─────────────────────────────────────────────────
     lucro_desejado = custos_fixos_total * 0.3  # 30% como meta padrão
@@ -608,6 +608,7 @@ def calcular_indicadores(state):
     resultado_antes_ir_var = lo_variavel - despesas_financeiras - perdas
     ircsll_var = resultado_antes_ir_var * 0.34 if resultado_antes_ir_var > 0 else 0
     ll_variavel = resultado_antes_ir_var - ircsll_var    
+    
     return {
         "rb": rb,
         "deducoes": deducoes,
@@ -626,6 +627,7 @@ def calcular_indicadores(state):
         "custos_semivariaveis": custos_semivariaveis,
         "custos_fixos_total": custos_fixos_total,
         "depreciacao": depreciacao,
+        "amortizacao": amortizacao,
         "custos_fixos_desembolsaveis": custos_fixos_desembolsaveis,
         "lucro_desejado": lucro_desejado,
         "pec": pec,
