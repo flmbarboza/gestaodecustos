@@ -12,7 +12,7 @@ import plotly.graph_objects as go
 from datetime import datetime
 import io
 import base64
-from jinja2 import Template
+from jinja2 import Environment, Template
 import json
 import os
 import plotly.io as pio
@@ -3706,11 +3706,12 @@ def criar_laudo_html(state, indicadores):
     """
     
     # ─── Registra filtros do Jinja2 ────────────────────────────
-    template = Template(template_str)
-    template.environment.filters["fmtR"] = fmtR
-    template.environment.filters["fmtP"] = fmtP
-    template.environment.filters["fmt"] = fmt
-    
+    env = Environment()
+    env.filters["fmtR"] = fmtR
+    env.filters["fmtP"] = fmtP
+    env.filters["fmt"] = fmt
+    template = env.from_string(template_str)
+        
     html = template.render(
         nome_empresa=state.get("nome_empresa", "—"),
         periodo=state.get("periodo", "—"),
