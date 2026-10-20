@@ -1,3 +1,5 @@
+TemplateSyntaxError: unexpected '>'
+
 """
 SYSCOST - Sistema de Apuração de Resultados e Gestão de Custos
 Versão Streamlit para fins didáticos
@@ -3755,13 +3757,13 @@ def criar_laudo_html(state, indicadores):
                     <td>EBIT</td>
                     <td class="text-right mono">{{ sim.ebit_base_fmt }}</td>
                     <td class="text-right mono">{{ sim.ebit_sim_fmt }}</td>
-                    <td class="text-right mono {{ 'pos' if sim.delta_ebit_pct >> 0 else 'neg' }}">{{ sim.delta_ebit_pct_fmt }}</td>
+                    <td class="text-right mono {{ 'pos' if sim.delta_ebit_pct >= 0 else 'neg' }}">{{ sim.delta_ebit_pct_fmt }}</td>
                 </tr>
                 <tr>
                     <td>Lucro Líquido</td>
                     <td class="text-right mono">{{ sim.ll_base_fmt }}</td>
                     <td class="text-right mono">{{ sim.ll_sim_fmt }}</td>
-                    <td class="text-right mono {{ 'pos' if sim.delta_ll_pct >> 0 else 'neg' }}">{{ sim.delta_ll_pct_fmt }}</td>
+                    <td class="text-right mono {{ 'pos' if sim.delta_ll_pct >= 0 else 'neg' }}">{{ sim.delta_ll_pct_fmt }}</td>
                 </tr>
             </tbody>
         </table>
