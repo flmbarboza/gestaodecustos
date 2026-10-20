@@ -3416,7 +3416,7 @@ def criar_laudo_html(state, indicadores):
     <html lang="pt-BR">
     <head>
         <meta charset="UTF-8">
-        <title>Laudo Completo - {{ nome_empresa }}</title>
+        <title>Laudo Completo - nome_empresa }}</title>
         <style>
             * { box-sizing: border-box; margin: 0; padding: 0; }
             body { font-family: Arial, sans-serif; font-size: 12px; color: #1a1a1a; background: #fff; padding: 30px; max-width: 1100px; margin: 0 auto; }
@@ -3461,20 +3461,20 @@ def criar_laudo_html(state, indicadores):
         <p class="subtitle">SysCost — Sistema de Apuração de Resultados e Gestão de Custos</p>
         
         <div class="meta">
-            <div class="meta-item"><span class="meta-label">Empresa</span><span class="meta-value">{{ nome_empresa }}</span></div>
-            <div class="meta-item"><span class="meta-label">Período</span><span class="meta-value">{{ periodo }}</span></div>
-            <div class="meta-item"><span class="meta-label">Regime</span><span class="meta-value">{{ regime }}</span></div>
-            <div class="meta-item"><span class="meta-label">Analista</span><span class="meta-value">{{ laudo.analista or "—" }}</span></div>
-            <div class="meta-item"><span class="meta-label">Data</span><span class="meta-value">{{ laudo.data }}</span></div>
+            <div class="meta-item"><span class="meta-label">Empresa</span><span class="meta-value">nome_empresa }}</span></div>
+            <div class="meta-item"><span class="meta-label">Período</span><span class="meta-value">periodo }}</span></div>
+            <div class="meta-item"><span class="meta-label">Regime</span><span class="meta-value">regime }}</span></div>
+            <div class="meta-item"><span class="meta-label">Analista</span><span class="meta-value">laudo.analista or "—" }}</span></div>
+            <div class="meta-item"><span class="meta-label">Data</span><span class="meta-value">laudo.data }}</span></div>
         </div>
         
         <!-- ═══════════════ KPIs PRINCIPAIS ═══════════════ -->
         <h2>1. Indicadores Principais</h2>
         <div class="kpi-grid">
-            <div class="kpi"><div class="kpi-label">Receita Líquida</div><div class="kpi-value mono">{{ cvl.rl_fmt }}</div></div>
-            <div class="kpi"><div class="kpi-label">MC %</div><div class="kpi-value mono">{{ cvl.mc_perc_fmt }}</div></div>
-            <div class="kpi"><div class="kpi-label">Lucro Líquido</div><div class="kpi-value mono {{ 'pos' if indicadores.ll_absorcao >= 0 else 'neg' }}">{{ fmtR_ll }}</div></div>
-            <div class="kpi"><div class="kpi-label">GAO</div><div class="kpi-value mono">{{ cvl.gao_fmt }}</div></div>
+            <div class="kpi"><div class="kpi-label">Receita Líquida</div><div class="kpi-value mono">cvl.rl_fmt }}</div></div>
+            <div class="kpi"><div class="kpi-label">MC %</div><div class="kpi-value mono">cvl.mc_perc_fmt }}</div></div>
+            <div class="kpi"><div class="kpi-label">Lucro Líquido</div><div class="kpi-value mono 'pos' if indicadores.ll_absorcao >= 0 else 'neg' }}">fmtR_ll }}</div></div>
+            <div class="kpi"><div class="kpi-label">GAO</div><div class="kpi-value mono">cvl.gao_fmt }}</div></div>
         </div>
         
         <!-- ═══════════════ PLANO DE CONTAS ═══════════════ -->
@@ -3484,9 +3484,9 @@ def criar_laudo_html(state, indicadores):
             <tbody>
                 {% for tipo, dados in resumo_plano.items() %}
                 <tr>
-                    <td><strong>{{ tipo }}</strong></td>
-                    <td class="text-right mono">{{ dados.qtd }}</td>
-                    <td class="neu">{{ dados.contas|join(', ') }}</td>
+                    <td><strong>tipo }}</strong></td>
+                    <td class="text-right mono">dados.qtd }}</td>
+                    <td class="neu">dados.contas|join(', ') }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -3496,20 +3496,20 @@ def criar_laudo_html(state, indicadores):
         <h2>3. Lançamentos por Tipo</h2>
         {% for tipo, itens in lanc_por_tipo.items() %}
             {% if itens %}
-            <h3>{{ tipo }}</h3>
+            <h3>tipo }}</h3>
             <table>
                 <thead><tr><th>Conta</th><th>Comportamento</th><th class="text-right">Valor</th></tr></thead>
                 <tbody>
                     {% for it in itens %}
                     <tr>
-                        <td>{{ it.conta }}</td>
-                        <td class="neu">{{ it.comportamento }}</td>
-                        <td class="text-right mono">{{ it.valor_fmt }}</td>
+                        <td>it.conta }}</td>
+                        <td class="neu">it.comportamento }}</td>
+                        <td class="text-right mono">it.valor_fmt }}</td>
                     </tr>
                     {% endfor %}
                     <tr class="total-row">
-                        <td colspan="2">Subtotal {{ tipo }}</td>
-                        <td class="text-right mono">{{ fmtR(itens|sum(attribute='valor')) }}</td>
+                        <td colspan="2">Subtotal tipo }}</td>
+                        <td class="text-right mono">fmtR(itens|sum(attribute='valor')) }}</td>
                     </tr>
                 </tbody>
             </table>
@@ -3707,9 +3707,6 @@ def criar_laudo_html(state, indicadores):
     
     # ─── Registra filtros do Jinja2 ────────────────────────────
     env = Environment()
-    env.filters["fmtR"] = fmtR
-    env.filters["fmtP"] = fmtP
-    env.filters["fmt"] = fmt
     template = env.from_string(template_str)
         
     html = template.render(
