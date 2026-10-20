@@ -3199,23 +3199,9 @@ def modulo_laudo():
         nome_arquivo = f"laudo_{st.session_state.nome_empresa.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M')}.html"
         href = f'<a href="data:text/html;base64,{b64}" download="{nome_arquivo}" style="display:inline-block;background:#58a6ff;color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:500;">⬇ Baixar Laudo Completo (HTML)</a>'
         st.markdown(href, unsafe_allow_html=True)
-
-    if st.button("📄 Gerar Laudo Completo", use_container_width=True):
-        with st.spinner("Gerando laudo com gráficos... isso pode levar alguns segundos."):
-            laudo_html = criar_laudo_html(st.session_state, indicadores)
         
-        render_alert(
-            "📄 Laudo gerado com sucesso! Baixe o HTML ou use Ctrl+P para salvar como PDF.",
-            type="success",
-        )
-        
-        b64 = base64.b64encode(laudo_html.encode()).decode()
-        nome_arquivo = f"laudo_{st.session_state.nome_empresa.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M')}.html"
-        href = f'<a href="data:text/html;base64,{b64}" download="{nome_arquivo}" style="display:inline-block;background:#58a6ff;color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:500;">⬇ Baixar Laudo Completo (HTML)</a>'
-        st.markdown(href, unsafe_allow_html=True)
-        
-        with st.expander("👁️ Pré-visualizar laudo"):
-            st.components.v1.html(laudo_html, height=800, scrolling=True)
+    with st.expander("👁️ Pré-visualizar laudo"):
+        st.components.v1.html(laudo_html, height=800, scrolling=True)
 
 def criar_laudo_html(state, indicadores):
     """Cria o HTML do laudo completo — cópia fiel do app, com gráficos."""
