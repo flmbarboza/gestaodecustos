@@ -3148,44 +3148,44 @@ def criar_laudo_html(state, indicadores):
             "preco_atual": v["preco_unit"],
         })
     
-    # ─── 6) DRE ABSORÇÃO ─────────────────────────────────────────
+    # ─── 6) DRE ABSORÇÃO — (label, valor_numérico, valor_formatado) ──
     dre_abs = [
-        ("Receita Bruta de Vendas", indicadores["rb"]),
-        ("(−) Deduções e Impostos", -indicadores["deducoes"]),
-        ("(−) Comissões", -indicadores["comissoes"]),
-        ("= Receita Líquida", indicadores["rl"]),
-        ("(−) Custos Diretos", -indicadores["cpv_direto"]),
-        ("(−) Custos Indiretos", -indicadores["custos_indiretos"]),
-        ("= Lucro Bruto", indicadores["lb_absorcao"]),
-        ("(−) Despesas Operacionais", -indicadores["despesas_operacionais"]),
-        ("= EBIT", indicadores["lo_absorcao"]),
-        ("(−) Despesas Financeiras", -indicadores["despesas_financeiras"]),
-        ("(−) Outras Despesas", -indicadores["perdas"]),
-        ("= LAIR", indicadores["resultado_antes_ir"]),
-        ("(−) IR/CSLL (34%)", -indicadores["ircsll_abs"]),
-        ("= Lucro Líquido", indicadores["ll_absorcao"]),
+        ("Receita Bruta de Vendas", indicadores["rb"], fmtR(indicadores["rb"])),
+        ("(−) Deduções e Impostos", -indicadores["deducoes"], fmtR(-indicadores["deducoes"])),
+        ("(−) Comissões", -indicadores["comissoes"], fmtR(-indicadores["comissoes"])),
+        ("= Receita Líquida", indicadores["rl"], fmtR(indicadores["rl"])),
+        ("(−) Custos Diretos", -indicadores["cpv_direto"], fmtR(-indicadores["cpv_direto"])),
+        ("(−) Custos Indiretos", -indicadores["custos_indiretos"], fmtR(-indicadores["custos_indiretos"])),
+        ("= Lucro Bruto", indicadores["lb_absorcao"], fmtR(indicadores["lb_absorcao"])),
+        ("(−) Despesas Operacionais", -indicadores["despesas_operacionais"], fmtR(-indicadores["despesas_operacionais"])),
+        ("= EBIT", indicadores["lo_absorcao"], fmtR(indicadores["lo_absorcao"])),
+        ("(−) Despesas Financeiras", -indicadores["despesas_financeiras"], fmtR(-indicadores["despesas_financeiras"])),
+        ("(−) Outras Despesas", -indicadores["perdas"], fmtR(-indicadores["perdas"])),
+        ("= LAIR", indicadores["resultado_antes_ir"], fmtR(indicadores["resultado_antes_ir"])),
+        ("(−) IR/CSLL (34%)", -indicadores["ircsll_abs"], fmtR(-indicadores["ircsll_abs"])),
+        ("= Lucro Líquido", indicadores["ll_absorcao"], fmtR(indicadores["ll_absorcao"])),
     ]
     
-    # ─── 7) DRE VARIÁVEL ─────────────────────────────────────────
+    # ─── 7) DRE VARIÁVEL ────────────────────────────────────────
     dre_var = [
-        ("Receita Bruta de Vendas", indicadores["rb"]),
-        ("(−) Deduções e Impostos", -indicadores["deducoes"]),
-        ("(−) Comissões", -indicadores["comissoes"]),
-        ("= Receita Líquida", indicadores["rl"]),
-        ("(−) Custos Variáveis", -indicadores["custos_variaveis"]),
-        ("(−) Despesas Variáveis", -indicadores["despesas_variaveis"]),
-        ("= Margem de Contribuição", indicadores["mc"]),
-        ("MC %", indicadores["mc_perc"]),
-        ("(−) Custos Fixos", -indicadores["custos_fixos_op"]),
-        ("(−) Custos Semivariáveis", -indicadores["custos_semivariaveis"]),
-        ("(−) Despesas Fixas", -indicadores["despesas_fixas"]),
-        ("(−) Despesas Semivariáveis", -indicadores["despesas_semivariaveis"]),
-        ("= EBIT", indicadores["lo_variavel"]),
-        ("(−) Despesas Financeiras", -indicadores["despesas_financeiras"]),
-        ("(−) Outras Despesas", -indicadores["perdas"]),
-        ("= LAIR", indicadores["resultado_antes_ir_var"]),
-        ("(−) IR/CSLL (34%)", -indicadores["ircsll_var"]),
-        ("= Lucro Líquido", indicadores["ll_variavel"]),
+        ("Receita Bruta de Vendas", indicadores["rb"], fmtR(indicadores["rb"])),
+        ("(−) Deduções e Impostos", -indicadores["deducoes"], fmtR(-indicadores["deducoes"])),
+        ("(−) Comissões", -indicadores["comissoes"], fmtR(-indicadores["comissoes"])),
+        ("= Receita Líquida", indicadores["rl"], fmtR(indicadores["rl"])),
+        ("(−) Custos Variáveis", -indicadores["custos_variaveis"], fmtR(-indicadores["custos_variaveis"])),
+        ("(−) Despesas Variáveis", -indicadores["despesas_variaveis"], fmtR(-indicadores["despesas_variaveis"])),
+        ("= Margem de Contribuição", indicadores["mc"], fmtR(indicadores["mc"])),
+        ("  MC %", indicadores["mc_perc"], fmtP(indicadores["mc_perc"])),
+        ("(−) Custos Fixos", -indicadores["custos_fixos_op"], fmtR(-indicadores["custos_fixos_op"])),
+        ("(−) Custos Semivariáveis", -indicadores["custos_semivariaveis"], fmtR(-indicadores["custos_semivariaveis"])),
+        ("(−) Despesas Fixas", -indicadores["despesas_fixas"], fmtR(-indicadores["despesas_fixas"])),
+        ("(−) Despesas Semivariáveis", -indicadores["despesas_semivariareis"], fmtR(-indicadores["despesas_semivariareis"])),
+        ("= EBIT", indicadores["lo_variavel"], fmtR(indicadores["lo_variavel"])),
+        ("(−) Despesas Financeiras", -indicadores["despesas_financeiras"], fmtR(-indicadores["despesas_financeiras"])),
+        ("(−) Outras Despesas", -indicadores["perdas"], fmtR(-indicadores["perdas"])),
+        ("= LAIR", indicadores["resultado_antes_ir_var"], fmtR(indicadores["resultado_antes_ir_var"])),
+        ("(−) IR/CSLL (34%)", -indicadores["ircsll_var"], fmtR(-indicadores["ircsll_var"])),
+        ("= Lucro Líquido", indicadores["ll_variavel"], fmtR(indicadores["ll_variavel"])),
     ]
     
     # ─── 8) CVL ──────────────────────────────────────────────────
@@ -3346,10 +3346,11 @@ def criar_laudo_html(state, indicadores):
         <table>
             <thead><tr><th>Linha</th><th class="text-right">Valor</th></tr></thead>
             <tbody>
-                {% for label, value in dre_abs %}
+                {% for label, value_num, value_fmt in dre_abs %}
                 <tr>
                     <td {% if label.startswith('=') %}style="font-weight:700;"{% endif %}>{{ label }}</td>
-                    <td class="text-right mono {% if value < 0 %}neg{% elif value > 0 %}pos{% endif %}" {% if label.startswith('=') %}style="font-weight:700;"{% endif %}>{{ value_fmt }}</td>
+                    <td class="text-right mono {% if value_num < 0 %}neg{% elif value_num > 0 %}pos{% endif %}"
+                        {% if label.startswith('=') %}style="font-weight:700;"{% endif %}>{{ value_fmt }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -3359,10 +3360,11 @@ def criar_laudo_html(state, indicadores):
         <table>
             <thead><tr><th>Linha</th><th class="text-right">Valor</th></tr></thead>
             <tbody>
-                {% for label, value in dre_var %}
+                {% for label, value_num, value_fmt in dre_var %}
                 <tr>
                     <td {% if label.startswith('=') %}style="font-weight:700;"{% endif %}>{{ label }}</td>
-                    <td class="text-right mono {% if value < 0 %}neg{% elif value > 0 %}pos{% endif %}" {% if label.startswith('=') %}style="font-weight:700;"{% endif %}>{{ value_fmt }}</td>
+                    <td class="text-right mono {% if value_num < 0 %}neg{% elif value_num > 0 %}pos{% endif %}"
+                        {% if label.startswith('=') %}style="font-weight:700;"{% endif %}>{{ value_fmt }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -3494,8 +3496,8 @@ def criar_laudo_html(state, indicadores):
         rb_produtos_fmt=fmtR(rb_produtos),
         rb_outras_fmt=fmtR(rb_outras),
         estoque_data=estoque_data,
-        dre_abs=[(l, fmtR(v) if "MC %" not in l else fmtP(v)) for l, v in dre_abs],
-        dre_var=[(l, fmtR(v) if "MC %" not in l else fmtP(v)) for l, v in dre_var],
+        dre_abs=dre_abs,
+        dre_var=dre_var,
         cvl=cvl_fmt,
         precificacao_data=precificacao_data,
         data_atual=datetime.now().strftime("%d/%m/%Y %H:%M"),
