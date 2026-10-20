@@ -575,7 +575,7 @@ def calcular_indicadores(state):
         + despesas_semivariaveis
     )
 
-    # Fixos totais (com financeiras) — usados no  e no PEE
+    # Fixos totais (com financeiras) — usados no PEC e no PEE
     custos_fixos_total = custos_fixos + despesas_financeiras + perdas
 
     # Fixos desembolsáveis (para o PE Financeiro) — exclui apenas depreciação
@@ -2366,7 +2366,7 @@ def modulo_cvl():
                    sub=f"%MC = {fmtP(indicadores['mc_perc'])}",
                    color="#39d353")
     with col4:
-        render_kpi("Custos Fixos", fmtR(indicadores["custos_fixos"]), color="#f85149")
+        render_kpi("Custos Fixos", fmtR(indicadores["custos_fixos_total"]), color="#f85149")
     
     if indicadores["depreciacao"] > 0:
         render_alert(f"💡 Identificamos <strong>{fmtR(indicadores['depreciacao'])}</strong> em depreciação nos custos fixos — esse valor é excluído no cálculo do PE Financeiro.", type="info")
