@@ -16,7 +16,7 @@ from jinja2 import Environment, Template
 import json
 import os
 import plotly.io as pio
-import plotly
+import plotly,kaleido
         
 # ─── CONFIGURAÇÃO DA PÁGINA ──────────────────────────────────────────────────────
 st.set_page_config(
