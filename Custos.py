@@ -579,7 +579,7 @@ def _gerar_graficos_laudo(state, indicadores):
     # ─── Gráfico 4: Evolução dos Indicadores (se multi-período) ─
     try:
         periodos = state.get("periodos", [])
-        if len(periodos) >= 2:
+        if len(periodos)  2:
             nomes = [p["nome"] for p in periodos]
             receitas = []
             lucros = []
@@ -2421,13 +2421,13 @@ def modulo_dre():
             ("= Receita Líquida", indicadores["rl"], "#58a6ff", True),
             ("(−) Custos Diretos (lançados)", -indicadores["cpv_direto"], "#e3b341", False),
             ("(−) Custos Indiretos (lançados)", -indicadores["custos_indiretos"], "#d29922", False),
-            ("= Lucro Bruto", indicadores["lb_absorcao"], "#39d353" if indicadores["lb_absorcao"] >= 0 else "#f85149", True),
+            ("= Lucro Bruto", indicadores["lb_absorcao"], "#39d353" if indicadores["lb_absorcao"]  0 else "#f85149", True),
             ("(−) Despesas Operacionais", -indicadores["despesas_operacionais"], "#f85149", False),
-            ("= Resultado Operacional (EBIT)", indicadores["lo_absorcao"], "#3fb950" if indicadores["lo_absorcao"] >= 0 else "#f85149", True),
+            ("= Resultado Operacional (EBIT)", indicadores["lo_absorcao"], "#3fb950" if indicadores["lo_absorcao"]  0 else "#f85149", True),
             ("(−) Despesas Financeiras", -indicadores["despesas_financeiras"], "#f85149", False),
             ("(−) Outras Despesas", -indicadores["perdas"], "#bc8cff", False),
             ("(−) IR/CSLL (34%)", -indicadores["ircsll_abs"], "#f85149", False),
-            ("= Lucro Líquido", indicadores["ll_absorcao"], "#3fb950" if indicadores["ll_absorcao"] >= 0 else "#f85149", True),
+            ("= Lucro Líquido", indicadores["ll_absorcao"], "#3fb950" if indicadores["ll_absorcao"]  0 else "#f85149", True),
         ]
         
         for label, value, color, bold in dre_abs:
@@ -2455,10 +2455,10 @@ def modulo_dre():
         col1a, col1b = st.columns(2)
         with col1a:
             render_kpi("Margem Bruta", fmtP(safe_div(indicadores["lb_absorcao"], indicadores["rl"]) * 100),
-                       color="#39d353" if indicadores["lb_absorcao"] >= 0 else "#f85149")
+                       color="#39d353" if indicadores["lb_absorcao"]  0 else "#f85149")
         with col1b:
             render_kpi("Margem Líquida", fmtP(safe_div(indicadores["ll_absorcao"], indicadores["rl"]) * 100),
-                       color="#3fb950" if indicadores["ll_absorcao"] >= 0 else "#f85149")
+                       color="#3fb950" if indicadores["ll_absorcao"]  0 else "#f85149")
     
     # ═══════════════════════════════════════════════════════════════
     # COLUNA 2 — VARIÁVEL
@@ -2477,17 +2477,17 @@ def modulo_dre():
             ("= Receita Líquida", indicadores["rl"], "#58a6ff", True),
             ("(−) Custos Variáveis", -indicadores["custos_variaveis"], "#e3b341", False),
             ("(−) Despesas Variáveis", -indicadores["despesas_variaveis"], "#e3b341", False),
-            ("= Margem de Contribuição (MC)", indicadores["mc"], "#39d353" if indicadores["mc"] >= 0 else "#f85149", True),
+            ("= Margem de Contribuição (MC)", indicadores["mc"], "#39d353" if indicadores["mc"]  0 else "#f85149", True),
             ("  MC %", fmtP(indicadores["mc_perc"]), "#8d96a0", False),
             ("(−) Custos Fixos", -indicadores["custos_fixos_op"], "#f85149", False),
             ("(−) Custos Semivariáveis", -indicadores["custos_semivariaveis"], "#f85149", False),
             ("(−) Despesas Fixas", -indicadores["despesas_fixas"], "#f85149", False),
             ("(−) Despesas Semivariáveis", -indicadores["despesas_semivariaveis"], "#f85149", False),
-            ("= Resultado Operacional", indicadores["lo_variavel"], "#3fb950" if indicadores["lo_variavel"] >= 0 else "#f85149", True),
+            ("= Resultado Operacional", indicadores["lo_variavel"], "#3fb950" if indicadores["lo_variavel"]  0 else "#f85149", True),
             ("(−) Despesas Financeiras", -indicadores["despesas_financeiras"], "#f85149", False),
             ("(−) Outras Despesas", -indicadores["perdas"], "#bc8cff", False),
             ("(−) IR/CSLL (34%)", -indicadores["ircsll_var"], "#f85149", False),
-            ("= Lucro Líquido", indicadores["ll_variavel"], "#3fb950" if indicadores["ll_variavel"] >= 0 else "#f85149", True),
+            ("= Lucro Líquido", indicadores["ll_variavel"], "#3fb950" if indicadores["ll_variavel"]  0 else "#f85149", True),
         ]
         
         for label, value, color, bold in dre_var:
@@ -2517,7 +2517,7 @@ def modulo_dre():
             render_kpi("Margem de Contribuição", fmtP(indicadores["mc_perc"]), color="#39d353")
         with col2b:
             render_kpi("Margem Líquida", fmtP(safe_div(indicadores["ll_variavel"], indicadores["rl"]) * 100),
-                       color="#3fb950" if indicadores["ll_variavel"] >= 0 else "#f85149")
+                       color="#3fb950" if indicadores["ll_variavel"]  0 else "#f85149")
     
     # ═══════════════════════════════════════════════════════════════
     # COMPARATIVO
@@ -2666,15 +2666,15 @@ def modulo_cvl():
     col1, col2, col3 = st.columns(3)
     with col1:
         render_kpi("Margem de Segurança R$", fmtR(indicadores["ms_abs"]),
-                   sub="Acima do PE" if indicadores["ms_abs"] >= 0 else "ABAIXO do PE — prejuízo!",
-                   color="#3fb950" if indicadores["ms_abs"] >= 0 else "#f85149")
+                   sub="Acima do PE" if indicadores["ms_abs"]  0 else "ABAIXO do PE — prejuízo!",
+                   color="#3fb950" if indicadores["ms_abs"]  0 else "#f85149")
     with col2:
         render_kpi("Margem de Segurança %", fmtP(indicadores["ms_perc"]),
-                   color="#3fb950" if indicadores["ms_perc"] >= 0 else "#f85149")
+                   color="#3fb950" if indicadores["ms_perc"]  0 else "#f85149")
     with col3:
         render_kpi("Margem de Segurança Qtd", f"{fmt(indicadores['ms_qtd'], 0)} un",
                    sub="Unidades acima do PE",
-                   color="#39d353" if indicadores["ms_perc"] >= 0 else "#f85149")
+                   color="#39d353" if indicadores["ms_perc"]  0 else "#f85149")
 
     # ALAVANCAGEM OPERACIONAL (GAO)
     st.subheader("⚙️ Alavancagem Operacional (GAO)")
@@ -2703,7 +2703,7 @@ def modulo_cvl():
             "Resultado Operacional (EBIT)",
             fmtR(ebit_val),
             sub="Denominador do GAO",
-            color="#3fb950" if ebit_val >= 0 else "#f85149",
+            color="#3fb950" if ebit_val  0 else "#f85149",
         )
     
     # Explicação didática
@@ -2803,7 +2803,7 @@ def modulo_cvl():
             render_kpi(
                 "Receita Líquida",
                 fmtR(rl_sim),
-                sub=f"{'+' if variacao_pct >= 0 else ''}{fmt(variacao_pct, 1)}% vs atual",
+                sub=f"{'+' if variacao_pct  0 else ''}{fmt(variacao_pct, 1)}% vs atual",
                 color="#58a6ff",
             )
         with col2:
@@ -2817,7 +2817,7 @@ def modulo_cvl():
             render_kpi(
                 "EBIT",
                 fmtR(ebit_sim),
-                sub=f"{'+' if delta_ebit_pct >= 0 else ''}{fmt(delta_ebit_pct, 1)}%",
+                sub=f"{'+' if delta_ebit_pct  0 else ''}{fmt(delta_ebit_pct, 1)}%",
                 color="#3fb950" if ebit_sim >= 0 else "#f85149",
             )
         with col4:
@@ -3445,6 +3445,9 @@ def criar_laudo_html(state, indicadores):
         "gao_fmt": f"{fmt(indicadores.get('gao', 0), 2)}×",
         "ms_abs": indicadores["ms_abs"],
         "ms_perc": indicadores["ms_perc"],
+        "ms_abs_classe": "pos" if indicadores["ms_abs"] >= 0 else "neg",
+        "ms_perc_classe": "pos" if indicadores["ms_perc"] >= 0 else "neg",
+        "ll_classe": "pos" if indicadores["ll_absorcao"] >= 0 else "neg",
     }
     
     # ─── Diagnóstico ───────────────────────────────────────────
@@ -3485,6 +3488,10 @@ def criar_laudo_html(state, indicadores):
         "delta_ll_pct_fmt": f"{'+' if sim['delta_ll_pct'] >= 0 else ''}{fmt(sim['delta_ll_pct'], 1)}%",
         "ebit_sim_ok": sim["ebit_sim"] >= 0,
         "ll_sim_ok": sim["ll_sim"] >= 0,
+        "ebit_sim_classe": "pos" if sim["ebit_sim"] >= 0 else "neg",
+        "ll_sim_classe": "pos" if sim["ll_sim"] >= 0 else "neg",
+        "delta_ebit_classe": "pos" if sim["delta_ebit_pct"] >= 0 else "neg",
+        "delta_ll_classe": "pos" if sim["delta_ll_pct"] >= 0 else "neg",
     }
     # ─── Template ──────────────────────────────────────────────
     template_str = """
@@ -3743,11 +3750,11 @@ def criar_laudo_html(state, indicadores):
             </div>
             <div class="kpi">
                 <div class="kpi-label">EBIT Simulado</div>
-                <div class="kpi-value mono {{ 'pos' if sim.ebit_sim_ok else 'neg' }}">{{ sim.ebit_sim_fmt }}</div>
+                <div class="kpi-value mono {{ sim.ebit_sim_classe }}">{{ sim.ebit_sim_fmt }}</div>
             </div>
             <div class="kpi">
                 <div class="kpi-label">Lucro Líquido Simulado</div>
-                <div class="kpi-value mono {{ 'pos' if sim.ll_sim_ok else 'neg' }}">{{ sim.ll_sim_fmt }}</div>
+                <div class="kpi-value mono {{ sim.ll_sim_classe }}">{{ sim.ll_sim_fmt }}</div>
             </div>
         </div>
         <table>
@@ -3757,13 +3764,13 @@ def criar_laudo_html(state, indicadores):
                     <td>EBIT</td>
                     <td class="text-right mono">{{ sim.ebit_base_fmt }}</td>
                     <td class="text-right mono">{{ sim.ebit_sim_fmt }}</td>
-                    <td class="text-right mono {{ 'pos' if sim.delta_ebit_pct >= 0 else 'neg' }}">{{ sim.delta_ebit_pct_fmt }}</td>
+                    <td class="text-right mono {{ sim.delta_ebit_classe }}">{{ sim.delta_ebit_pct_fmt }}</td>
                 </tr>
                 <tr>
                     <td>Lucro Líquido</td>
                     <td class="text-right mono">{{ sim.ll_base_fmt }}</td>
                     <td class="text-right mono">{{ sim.ll_sim_fmt }}</td>
-                    <td class="text-right mono {{ 'pos' if sim.delta_ll_pct >= 0 else 'neg' }}">{{ sim.delta_ll_pct_fmt }}</td>
+                    <td class="text-right mono {{ sim.delta_ll_classe }}">{{ sim.delta_ll_pct_fmt }}</td>
                 </tr>
             </tbody>
         </table>
