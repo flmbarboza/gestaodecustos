@@ -3179,7 +3179,7 @@ def criar_laudo_html(state, indicadores):
         ("(−) Custos Fixos", -indicadores["custos_fixos_op"], fmtR(-indicadores["custos_fixos_op"])),
         ("(−) Custos Semivariáveis", -indicadores["custos_semivariaveis"], fmtR(-indicadores["custos_semivariaveis"])),
         ("(−) Despesas Fixas", -indicadores["despesas_fixas"], fmtR(-indicadores["despesas_fixas"])),
-        ("(−) Despesas Semivariáveis", -indicadores["despesas_semivariareis"], fmtR(-indicadores["despesas_semivariareis"])),
+        ("(−) Despesas Semivariáveis", -indicadores["despesas_semivariaveis"], fmtR(-indicadores["despesas_semivariaveis"])),
         ("= EBIT", indicadores["lo_variavel"], fmtR(indicadores["lo_variavel"])),
         ("(−) Despesas Financeiras", -indicadores["despesas_financeiras"], fmtR(-indicadores["despesas_financeiras"])),
         ("(−) Outras Despesas", -indicadores["perdas"], fmtR(-indicadores["perdas"])),
