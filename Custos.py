@@ -1,5 +1,3 @@
-TemplateSyntaxError: unexpected '>'
-
 """
 SYSCOST - Sistema de Apuração de Resultados e Gestão de Custos
 Versão Streamlit para fins didáticos
