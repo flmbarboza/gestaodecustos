@@ -1462,7 +1462,7 @@ def modulo_lancamentos():
         with col2:
             manual_desc = st.text_input("Descrição do lançamento", placeholder="Ex: Conta de energia da fábrica", key="manual_desc")
         with col3:
-            manual_valor = st.number_input("Valor (R$)", min_value=0.0, step=100.0, format="%.2f", key="manual_valor")
+            manual_valor = st.number_input("Valor (R$)", min_value=0.0, step=0.01, format="%.2f", key="manual_valor")
         
         if st.button("🔍 Sugerir conta e adicionar à revisão", use_container_width=True):
             if manual_desc and manual_valor > 0:
@@ -1706,7 +1706,7 @@ def modulo_lancamentos():
                     "Valor": st.column_config.NumberColumn(
                         "Valor (R$)",
                         min_value=0.0,
-                        step=100.0,
+                        step=0.01,
                         format="%.2f",
                         width="medium",
                         help="Edite livremente. Deixe 0 para remover o lançamento.",
@@ -2083,7 +2083,7 @@ def modulo_vendas():
             df_outras_ren,
             column_config={
                 "Descrição": st.column_config.TextColumn("Descrição", width="large"),
-                "Valor": st.column_config.NumberColumn("Valor (R$)", min_value=0.0, step=100.0, format="%.2f"),
+                "Valor": st.column_config.NumberColumn("Valor (R$)", min_value=0.0, step=0.01, format="%.2f"),
             },
             use_container_width=True,
             hide_index=True,
@@ -2291,7 +2291,7 @@ def modulo_dre():
             ("(−) Custos Variáveis", -indicadores["custos_variaveis"], "#e3b341", False),
             ("(−) Despesas Variáveis", -indicadores["despesas_variaveis"], "#e3b341", False),
             ("= Margem de Contribuição (MC)", indicadores["mc"], "#39d353" if indicadores["mc"] >= 0 else "#f85149", True),
-            ("  MC %", indicadores["mc_perc"], "#8d96a0", False),
+            ("  MC %", fmtP(indicadores["mc_perc"]), "#8d96a0", False),
             # ─── Bloco FIXO ───────────────────────────────────────
             ("(−) Custos Fixos", -indicadores["custos_fixos_op"], "#f85149", False),
             ("(−) Custos Semivariáveis", -indicadores["custos_semivariaveis"], "#f85149", False),
@@ -2306,10 +2306,12 @@ def modulo_dre():
         ]
         
         for label, value, color, bold in dre_var:
-            prefix = ""
-            if value < 0:
-                prefix = "−"
-                value = abs(value)
+            if isinstance(value, str):
+                # já formatado (ex: percentual)
+                display = value
+            else:
+                prefix = "−" if value < 0 else ""
+                display = f"{prefix}{fmtR(abs(value))}"
             st.markdown(
                 f"""
                 <div style="display: flex; justify-content: space-between; padding: 4px 0; 
