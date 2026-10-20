@@ -15,6 +15,7 @@ import base64
 from jinja2 import Template
 import json
 import os
+import plotly.io as pio
         
 # ─── CONFIGURAÇÃO DA PÁGINA ──────────────────────────────────────────────────────
 st.set_page_config(
@@ -246,6 +247,9 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# Configura locale pt-BR (separador de milhar = ponto, decimal = vírgula)
+pio.templates.default = "plotly_dark"
+pio.kaleido.scope.default_format = "png"  # opcional
 # ─── UTILITÁRIOS ────────────────────────────────────────────────────────────────
 
 def fmt(v, d=2):
@@ -2499,6 +2503,16 @@ def modulo_cvl():
                       annotation_text=f"RL: {fmtR(indicadores['rl'])}",
                       annotation_position="bottom")
         
+        # ─── Ticks formatados manualmente (garante padrão brasileiro) ──
+        tickvals_x = np.linspace(0, max_receita, 6)
+        ticktext_x = [fmtR(v) for v in tickvals_x]
+        
+        # Valores do eixo Y (custo fixo e MC) — pega os pontos relevantes
+        y_max = max(max(mc_sim), max(custo_fixo), max(lucro))
+        y_min = min(min(mc_sim), min(custo_fixo), min(lucro))
+        tickvals_y = np.linspace(y_min, y_max, 6)
+        ticktext_y = [fmtR(v) for v in tickvals_y]
+        
         fig.update_layout(
             title="Análise Custo-Volume-Lucro (modelo simplificado)",
             xaxis_title="Receita Líquida (R$)",
@@ -2506,9 +2520,19 @@ def modulo_cvl():
             plot_bgcolor="#161b22",
             paper_bgcolor="#161b22",
             font_color="#e6edf3",
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+            xaxis=dict(
+                tickvals=tickvals_x,
+                ticktext=ticktext_x,
+                hoverformat=",.2f",
+            ),
+            yaxis=dict(
+                tickvals=tickvals_y,
+                ticktext=ticktext_y,
+                hoverformat=",.2f",
+            ),
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, config={"locale": "pt-BR"})
     else:
         st.info("Informe uma receita e custos fixos válidos para visualizar o gráfico.")
 
