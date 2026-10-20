@@ -2419,13 +2419,13 @@ def modulo_dre():
             ("= Receita Líquida", indicadores["rl"], "#58a6ff", True),
             ("(−) Custos Diretos (lançados)", -indicadores["cpv_direto"], "#e3b341", False),
             ("(−) Custos Indiretos (lançados)", -indicadores["custos_indiretos"], "#d29922", False),
-            ("= Lucro Bruto", indicadores["lb_absorcao"], "#39d353" if indicadores["lb_absorcao"]  0 else "#f85149", True),
+            ("= Lucro Bruto", indicadores["lb_absorcao"], "#39d353" if indicadores["lb_absorcao"] >= 0 else "#f85149", True),
             ("(−) Despesas Operacionais", -indicadores["despesas_operacionais"], "#f85149", False),
-            ("= Resultado Operacional (EBIT)", indicadores["lo_absorcao"], "#3fb950" if indicadores["lo_absorcao"]  0 else "#f85149", True),
+            ("= Resultado Operacional (EBIT)", indicadores["lo_absorcao"], "#3fb950" if indicadores["lo_absorcao"] >= 0 else "#f85149", True),
             ("(−) Despesas Financeiras", -indicadores["despesas_financeiras"], "#f85149", False),
             ("(−) Outras Despesas", -indicadores["perdas"], "#bc8cff", False),
             ("(−) IR/CSLL (34%)", -indicadores["ircsll_abs"], "#f85149", False),
-            ("= Lucro Líquido", indicadores["ll_absorcao"], "#3fb950" if indicadores["ll_absorcao"]  0 else "#f85149", True),
+            ("= Lucro Líquido", indicadores["ll_absorcao"], "#3fb950" if indicadores["ll_absorcao"] >= 0 else "#f85149", True),
         ]
         
         for label, value, color, bold in dre_abs:
