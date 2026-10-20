@@ -3705,10 +3705,14 @@ def criar_laudo_html(state, indicadores):
     </html>
     """
     
-    # ─── Registra filtros do Jinja2 ────────────────────────────
+    # ─── Compila o template (SEM filtros) ──────────────────────
     env = Environment()
+    env.filters["fmtR"] = fmtR
+    env.filters["fmtP"] = fmtP
+    env.filters["fmt"] = fmt
     template = env.from_string(template_str)
-        
+    
+    # ─── Renderiza com os dados ────────────────────────────────
     html = template.render(
         nome_empresa=state.get("nome_empresa", "—"),
         periodo=state.get("periodo", "—"),
@@ -3731,8 +3735,9 @@ def criar_laudo_html(state, indicadores):
         fmtR_ll=fmtR(indicadores["ll_absorcao"]),
         data_atual=datetime.now().strftime("%d/%m/%Y %H:%M"),
     )
+    
     return html
-
+        
 def modulo_info():
     """Módulo: Informações"""
     st.header("ℹ️ Informações e Documentação")
