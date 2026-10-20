@@ -2475,17 +2475,17 @@ def modulo_dre():
             ("= Receita Líquida", indicadores["rl"], "#58a6ff", True),
             ("(−) Custos Variáveis", -indicadores["custos_variaveis"], "#e3b341", False),
             ("(−) Despesas Variáveis", -indicadores["despesas_variaveis"], "#e3b341", False),
-            ("= Margem de Contribuição (MC)", indicadores["mc"], "#39d353" if indicadores["mc"]  0 else "#f85149", True),
+            ("= Margem de Contribuição (MC)", indicadores["mc"], "#39d353" if indicadores["mc"] >= 0 else "#f85149", True),
             ("  MC %", fmtP(indicadores["mc_perc"]), "#8d96a0", False),
             ("(−) Custos Fixos", -indicadores["custos_fixos_op"], "#f85149", False),
             ("(−) Custos Semivariáveis", -indicadores["custos_semivariaveis"], "#f85149", False),
             ("(−) Despesas Fixas", -indicadores["despesas_fixas"], "#f85149", False),
             ("(−) Despesas Semivariáveis", -indicadores["despesas_semivariaveis"], "#f85149", False),
-            ("= Resultado Operacional", indicadores["lo_variavel"], "#3fb950" if indicadores["lo_variavel"]  0 else "#f85149", True),
+            ("= Resultado Operacional", indicadores["lo_variavel"], "#3fb950" if indicadores["lo_variavel"] >= 0 else "#f85149", True),
             ("(−) Despesas Financeiras", -indicadores["despesas_financeiras"], "#f85149", False),
             ("(−) Outras Despesas", -indicadores["perdas"], "#bc8cff", False),
             ("(−) IR/CSLL (34%)", -indicadores["ircsll_var"], "#f85149", False),
-            ("= Lucro Líquido", indicadores["ll_variavel"], "#3fb950" if indicadores["ll_variavel"]  0 else "#f85149", True),
+            ("= Lucro Líquido", indicadores["ll_variavel"], "#3fb950" if indicadores["ll_variavel"] >= 0 else "#f85149", True),
         ]
         
         for label, value, color, bold in dre_var:
@@ -2515,7 +2515,7 @@ def modulo_dre():
             render_kpi("Margem de Contribuição", fmtP(indicadores["mc_perc"]), color="#39d353")
         with col2b:
             render_kpi("Margem Líquida", fmtP(safe_div(indicadores["ll_variavel"], indicadores["rl"]) * 100),
-                       color="#3fb950" if indicadores["ll_variavel"]  0 else "#f85149")
+                       color="#3fb950" if indicadores["ll_variavel"] >= 0 else "#f85149")
     
     # ═══════════════════════════════════════════════════════════════
     # COMPARATIVO
@@ -2664,15 +2664,15 @@ def modulo_cvl():
     col1, col2, col3 = st.columns(3)
     with col1:
         render_kpi("Margem de Segurança R$", fmtR(indicadores["ms_abs"]),
-                   sub="Acima do PE" if indicadores["ms_abs"]  0 else "ABAIXO do PE — prejuízo!",
-                   color="#3fb950" if indicadores["ms_abs"]  0 else "#f85149")
+                   sub="Acima do PE" if indicadores["ms_abs"] >= 0 else "ABAIXO do PE — prejuízo!",
+                   color="#3fb950" if indicadores["ms_abs"] >= 0 else "#f85149")
     with col2:
         render_kpi("Margem de Segurança %", fmtP(indicadores["ms_perc"]),
-                   color="#3fb950" if indicadores["ms_perc"]  0 else "#f85149")
+                   color="#3fb950" if indicadores["ms_perc"] >= 0 else "#f85149")
     with col3:
         render_kpi("Margem de Segurança Qtd", f"{fmt(indicadores['ms_qtd'], 0)} un",
                    sub="Unidades acima do PE",
-                   color="#39d353" if indicadores["ms_perc"]  0 else "#f85149")
+                   color="#39d353" if indicadores["ms_perc"] >= 0 else "#f85149")
 
     # ALAVANCAGEM OPERACIONAL (GAO)
     st.subheader("⚙️ Alavancagem Operacional (GAO)")
