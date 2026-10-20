@@ -2453,10 +2453,10 @@ def modulo_dre():
         col1a, col1b = st.columns(2)
         with col1a:
             render_kpi("Margem Bruta", fmtP(safe_div(indicadores["lb_absorcao"], indicadores["rl"]) * 100),
-                       color="#39d353" if indicadores["lb_absorcao"]  0 else "#f85149")
+                       color="#39d353" if indicadores["lb_absorcao"] >= 0 else "#f85149")
         with col1b:
             render_kpi("Margem Líquida", fmtP(safe_div(indicadores["ll_absorcao"], indicadores["rl"]) * 100),
-                       color="#3fb950" if indicadores["ll_absorcao"]  0 else "#f85149")
+                       color="#3fb950" if indicadores["ll_absorcao"] >= 0 else "#f85149")
     
     # ═══════════════════════════════════════════════════════════════
     # COLUNA 2 — VARIÁVEL
