@@ -3638,7 +3638,7 @@ def criar_laudo_html(state, indicadores):
         
         {% if graficos.cvl %}
         <div class="grafico">
-            <img src="{{ graficos.cvl }}" alt="Gráfico do Ponto de Equilíbrio">
+            {{ graficos.cvl | safe }}
         </div>
         {% endif %}
         
@@ -3646,12 +3646,12 @@ def criar_laudo_html(state, indicadores):
         <div class="duas-colunas">
             {% if graficos.pizza_custos %}
             <div class="grafico">
-                <img src="{{ graficos.pizza_custos }}" alt="Composição de Custos">
+                {{ graficos.pizza_custos | safe }}
             </div>
             {% endif %}
             {% if graficos.barras_receita %}
             <div class="grafico">
-                <img src="{{ graficos.barras_receita }}" alt="Receita por Produto">
+                {{ graficos.barras_receita | safe }}
             </div>
             {% endif %}
         </div>
@@ -3659,7 +3659,7 @@ def criar_laudo_html(state, indicadores):
         {% if graficos.evolucao %}
         <h3>Evolução Longitudinal</h3>
         <div class="grafico">
-            <img src="{{ graficos.evolucao }}" alt="Evolução Mensal">
+            {{ graficos.evolucao | safe }}
         </div>
         {% endif %}
         
