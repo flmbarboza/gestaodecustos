@@ -3200,8 +3200,8 @@ def modulo_laudo():
         href = f'<a href="data:text/html;base64,{b64}" download="{nome_arquivo}" style="display:inline-block;background:#58a6ff;color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:500;">⬇ Baixar Laudo Completo (HTML)</a>'
         st.markdown(href, unsafe_allow_html=True)
         
-    with st.expander("👁️ Pré-visualizar laudo"):
-        st.components.v1.html(laudo_html, height=800, scrolling=True)
+        with st.expander("👁️ Pré-visualizar laudo"):
+            st.components.v1.html(laudo_html, height=800, scrolling=True)
 
 def criar_laudo_html(state, indicadores):
     """Cria o HTML do laudo completo — cópia fiel do app, com gráficos."""
