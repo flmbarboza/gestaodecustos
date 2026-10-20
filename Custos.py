@@ -2224,6 +2224,9 @@ def modulo_dre():
     
     col1, col2 = st.columns(2)
     
+    # ═══════════════════════════════════════════════════════════════
+    # COLUNA 1 — ABSORÇÃO
+    # ═══════════════════════════════════════════════════════════════
     with col1:
         st.subheader("📋 Custeio por Absorção")
         render_alert("""
@@ -2231,7 +2234,6 @@ def modulo_dre():
         Exigido pela legislação (CPC/IFRS).
         """, type="warn")
         
-        # DRE Absorção
         dre_abs = [
             ("Receita Bruta de Vendas", indicadores["rb"], "#3fb950", True),
             ("(−) Deduções e Impostos s/ Vendas", -indicadores["deducoes"], "#f85149", False),
@@ -2248,12 +2250,10 @@ def modulo_dre():
             ("= Lucro Líquido", indicadores["ll_absorcao"], "#3fb950" if indicadores["ll_absorcao"] >= 0 else "#f85149", True),
         ]
         
-        for label, value, color, bold in dre_var:
-            # Se já é string (ex: percentual pré-formatado), usa como está
+        for label, value, color, bold in dre_abs:
             if isinstance(value, str):
                 display = value
             else:
-                # É número: formata como moeda, controlando o sinal
                 if value < 0:
                     display = f"−{fmtR(abs(value))}"
                 else:
@@ -2280,6 +2280,9 @@ def modulo_dre():
             render_kpi("Margem Líquida", fmtP(safe_div(indicadores["ll_absorcao"], indicadores["rl"]) * 100),
                        color="#3fb950" if indicadores["ll_absorcao"] >= 0 else "#f85149")
     
+    # ═══════════════════════════════════════════════════════════════
+    # COLUNA 2 — VARIÁVEL
+    # ═══════════════════════════════════════════════════════════════
     with col2:
         st.subheader("📋 Custeio Variável (Gerencial)")
         render_alert("""
@@ -2287,24 +2290,20 @@ def modulo_dre():
         Ideal para decisões gerenciais.
         """, type="info")
         
-        # DRE Variável
         dre_var = [
             ("Receita Bruta de Vendas", indicadores["rb"], "#3fb950", True),
             ("(−) Deduções e Impostos s/ Vendas", -indicadores["deducoes"], "#f85149", False),
             ("(−) Comissões s/ Vendas", -indicadores["comissoes"], "#f85149", False),
             ("= Receita Líquida", indicadores["rl"], "#58a6ff", True),
-            # ─── Bloco VARIÁVEL ───────────────────────────────────
             ("(−) Custos Variáveis", -indicadores["custos_variaveis"], "#e3b341", False),
             ("(−) Despesas Variáveis", -indicadores["despesas_variaveis"], "#e3b341", False),
             ("= Margem de Contribuição (MC)", indicadores["mc"], "#39d353" if indicadores["mc"] >= 0 else "#f85149", True),
             ("  MC %", fmtP(indicadores["mc_perc"]), "#8d96a0", False),
-            # ─── Bloco FIXO ───────────────────────────────────────
             ("(−) Custos Fixos", -indicadores["custos_fixos_op"], "#f85149", False),
             ("(−) Custos Semivariáveis", -indicadores["custos_semivariaveis"], "#f85149", False),
             ("(−) Despesas Fixas", -indicadores["despesas_fixas"], "#f85149", False),
             ("(−) Despesas Semivariáveis", -indicadores["despesas_semivariaveis"], "#f85149", False),
             ("= Resultado Operacional", indicadores["lo_variavel"], "#3fb950" if indicadores["lo_variavel"] >= 0 else "#f85149", True),
-            # ─── Abaixo do operacional ────────────────────────────
             ("(−) Despesas Financeiras", -indicadores["despesas_financeiras"], "#f85149", False),
             ("(−) Outras Despesas", -indicadores["perdas"], "#bc8cff", False),
             ("(−) IR/CSLL (34%)", -indicadores["ircsll_var"], "#f85149", False),
@@ -2313,19 +2312,21 @@ def modulo_dre():
         
         for label, value, color, bold in dre_var:
             if isinstance(value, str):
-                # já formatado (ex: percentual)
                 display = value
             else:
-                prefix = "−" if value < 0 else ""
-                display = f"{prefix}{fmtR(abs(value))}"
+                if value < 0:
+                    display = f"−{fmtR(abs(value))}"
+                else:
+                    display = fmtR(value)
+            
             st.markdown(
                 f"""
-                <div style="display: flex; justify-content: space-between; padding: 4px 0; 
-                            font-family: 'IBM Plex Mono', monospace; 
+                <div style="display: flex; justify-content: space-between; padding: 4px 0;
+                            font-family: 'IBM Plex Mono', monospace;
                             font-weight: {'700' if bold else '400'};
                             color: {color};">
                     <span>{label}</span>
-                    <span>{prefix}{fmtR(value)}</span>
+                    <span>{display}</span>
                 </div>
                 """,
                 unsafe_allow_html=True
@@ -2338,7 +2339,9 @@ def modulo_dre():
             render_kpi("Margem Líquida", fmtP(safe_div(indicadores["ll_variavel"], indicadores["rl"]) * 100),
                        color="#3fb950" if indicadores["ll_variavel"] >= 0 else "#f85149")
     
-    # Comparativo
+    # ═══════════════════════════════════════════════════════════════
+    # COMPARATIVO
+    # ═══════════════════════════════════════════════════════════════
     st.subheader("📊 Comparativo Absorção vs Variável")
     comparativo = pd.DataFrame([
         {"Indicador": "Receita Líquida", "Absorção": fmtR(indicadores["rl"]), "Variável": fmtR(indicadores["rl"]), "Diferença": fmtR(0)},
@@ -2350,8 +2353,8 @@ def modulo_dre():
     
     st.markdown(f"""
     <div style="font-size: 12px; color: #8d96a0; margin-top: 10px;">
-    💡 A diferença entre os métodos equivale aos custos indiretos rateados 
-    (<strong style="color: #e3b341;">{fmtR(indicadores['custos_indiretos'])}</strong>). 
+    💡 A diferença entre os métodos equivale aos custos indiretos rateados
+    (<strong style="color: #e3b341;">{fmtR(indicadores['custos_indiretos'])}</strong>).
     No Absorção, esse valor vai para o CPV; no Variável, vai direto para os custos fixos do período.
     </div>
     """, unsafe_allow_html=True)
