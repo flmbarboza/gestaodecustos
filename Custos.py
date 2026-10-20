@@ -2589,7 +2589,7 @@ def modulo_cvl():
         # ─── Valores atuais (base) ─────────────────────────────
         rl_base = indicadores["rl"]
         mc_perc_dec = indicadores["mc_perc"] / 100
-        fixos_totais = indicadores["custos_fixos_total"]
+        fixos_totais = indicadores["custo_fixo"]
         desp_fin = indicadores["despesas_financeiras"]
         perdas_val = indicadores["perdas"]
         
