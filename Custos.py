@@ -2754,6 +2754,7 @@ def modulo_cvl():
             help="Positivo = aumento; negativo = queda. Ex: -10 significa queda de 10%.",
         )
         
+        
         # ─── Valores atuais (base) ─────────────────────────────
         rl_base = indicadores["rl"]
         mc_perc_dec = indicadores["mc_perc"] / 100
@@ -2778,7 +2779,23 @@ def modulo_cvl():
             (ll_sim - indicadores["ll_variavel"]) / abs(indicadores["ll_variavel"]) * 100
             if indicadores["ll_variavel"] != 0 else 0
         )
-        
+
+        # ─── Guarda no session_state para o laudo ────────────────
+        st.session_state["simulacao_atual"] = {
+            "variacao_pct": variacao_pct,
+            "rl_base": rl_base,
+            "rl_sim": rl_sim,
+            "mc_sim": mc_sim,
+            "ebit_sim": ebit_sim,
+            "lair_sim": lair_sim,
+            "ir_sim": ir_sim,
+            "ll_sim": ll_sim,
+            "ebit_base": indicadores["lo_variavel"],
+            "ll_base": indicadores["ll_variavel"],
+            "delta_ebit_pct": delta_ebit_pct,
+            "delta_ll_pct": delta_ll_pct,
+        }
+            
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             render_kpi(
@@ -3227,7 +3244,35 @@ def criar_laudo_html(state, indicadores):
     estoque_inicial = state.get("estoque_inicial", [])
     estoque_final = state.get("estoque_final", [])
     producao_mes = state.get("producao_mes", [])
-    
+
+    # ─── Recupera a simulação (ou usa cenário padrão) ───────────
+    sim = state.get("simulacao_atual")
+    if not sim:
+        # Cenário padrão: variação 0% (sem alteração)
+        rl_base = indicadores["rl"]
+        mc_perc_dec = indicadores["mc_perc"] / 100
+        fixos_totais = indicadores["custos_fixos_total"]
+        desp_fin = indicadores["despesas_financeiras"]
+        perdas_val = indicadores["perdas"]
+        
+        ebit_base = indicadores["lo_variavel"]
+        ll_base = indicadores["ll_variavel"]
+        
+        sim = {
+            "variacao_pct": 0.0,
+            "rl_base": rl_base,
+            "rl_sim": rl_base,
+            "mc_sim": indicadores["mc"],
+            "ebit_sim": ebit_base,
+            "lair_sim": indicadores["resultado_antes_ir_var"],
+            "ir_sim": indicadores["ircsll_var"],
+            "ll_sim": ll_base,
+            "ebit_base": ebit_base,
+            "ll_base": ll_base,
+            "delta_ebit_pct": 0.0,
+            "delta_ll_pct": 0.0,
+        }
+            
     # ─── Gera os gráficos como imagens ──────────────────────────
     graficos = _gerar_graficos_laudo(state, indicadores)
     
@@ -3422,7 +3467,23 @@ def criar_laudo_html(state, indicadores):
         "msg": f"Receita acima do PE Contábil ({fmtR(indicadores['pec'])})" if indicadores["rl"] > indicadores["pec"]
                else "Receita abaixo do PE — prejuízo operacional!",
     })
-    
+
+    # ─── Formata a simulação para o template ────────────────────
+    sim_fmt = {
+        "variacao_pct_fmt": f"{'+' if sim['variacao_pct'] >= 0 else ''}{fmt(sim['variacao_pct'], 1)}%",
+        "rl_sim_fmt": fmtR(sim["rl_sim"]),
+        "mc_sim_fmt": fmtR(sim["mc_sim"]),
+        "ebit_sim_fmt": fmtR(sim["ebit_sim"]),
+        "lair_sim_fmt": fmtR(sim["lair_sim"]),
+        "ir_sim_fmt": fmtR(sim["ir_sim"]),
+        "ll_sim_fmt": fmtR(sim["ll_sim"]),
+        "ebit_base_fmt": fmtR(sim["ebit_base"]),
+        "ll_base_fmt": fmtR(sim["ll_base"]),
+        "delta_ebit_pct_fmt": f"{'+' if sim['delta_ebit_pct'] >= 0 else ''}{fmt(sim['delta_ebit_pct'], 1)}%",
+        "delta_ll_pct_fmt": f"{'+' if sim['delta_ll_pct'] >= 0 else ''}{fmt(sim['delta_ll_pct'], 1)}%",
+        "ebit_sim_ok": sim["ebit_sim"] >= 0,
+        "ll_sim_ok": sim["ll_sim"] >= 0,
+    }
     # ─── Template ──────────────────────────────────────────────
     template_str = """
     <!DOCTYPE html>
@@ -3662,8 +3723,50 @@ def criar_laudo_html(state, indicadores):
             {{ graficos.evolucao | safe }}
         </div>
         {% endif %}
+
+         <!-- ═══════════════ SIMULAÇÃO ═══════════════ -->
+        <h2>9. Simulação — Variação da Receita</h2>
+        <p style="font-size:11px;color:#666;margin-bottom:10px;">
+            Cenário simulado com variação de <strong>{{ sim.variacao_pct_fmt }}</strong>
+            na Receita Líquida, mantendo a MC% constante.
+        </p>
+        <div class="kpi-grid">
+            <div class="kpi">
+                <div class="kpi-label">Receita Líquida Simulada</div>
+                <div class="kpi-value mono">{{ sim.rl_sim_fmt }}</div>
+            </div>
+            <div class="kpi">
+                <div class="kpi-label">Margem de Contribuição</div>
+                <div class="kpi-value mono">{{ sim.mc_sim_fmt }}</div>
+            </div>
+            <div class="kpi">
+                <div class="kpi-label">EBIT Simulado</div>
+                <div class="kpi-value mono {{ 'pos' if sim.ebit_sim_ok else 'neg' }}">{{ sim.ebit_sim_fmt }}</div>
+            </div>
+            <div class="kpi">
+                <div class="kpi-label">Lucro Líquido Simulado</div>
+                <div class="kpi-value mono {{ 'pos' if sim.ll_sim_ok else 'neg' }}">{{ sim.ll_sim_fmt }}</div>
+            </div>
+        </div>
+        <table>
+            <thead><tr><th>Item</th><th class="text-right">Atual</th><th class="text-right">Simulado</th><th class="text-right">Δ %</th></tr></thead>
+            <tbody>
+                <tr>
+                    <td>EBIT</td>
+                    <td class="text-right mono">{{ sim.ebit_base_fmt }}</td>
+                    <td class="text-right mono">{{ sim.ebit_sim_fmt }}</td>
+                    <td class="text-right mono {{ 'pos' if sim.delta_ebit_pct >= 0 else 'neg' }}">{{ sim.delta_ebit_pct_fmt }}</td>
+                </tr>
+                <tr>
+                    <td>Lucro Líquido</td>
+                    <td class="text-right mono">{{ sim.ll_base_fmt }}</td>
+                    <td class="text-right mono">{{ sim.ll_sim_fmt }}</td>
+                    <td class="text-right mono {{ 'pos' if sim.delta_ll_pct >= 0 else 'neg' }}">{{ sim.delta_ll_pct_fmt }}</td>
+                </tr>
+            </tbody>
+        </table>
         
-        <h2>9. Precificação</h2>
+        <h2>10. Precificação</h2>
         <table>
             <thead><tr><th>Produto</th><th class="text-right">Custo Unit.</th><th class="text-right">Preço Mark-up</th><th class="text-right">Preço Mercado</th><th class="text-right">Preço Atual</th></tr></thead>
             <tbody>
@@ -3679,28 +3782,28 @@ def criar_laudo_html(state, indicadores):
             </tbody>
         </table>
         
-        <h2>10. Diagnóstico Executivo</h2>
+        <h2>11. Diagnóstico Executivo</h2>
         {% for d in diagnosticos %}
         <div class="diagnostico {{ 'diag-ok' if d.ok else 'diag-bad' }}">
             {{ '✅' if d.ok else '❌' }} {{ d.msg }}
         </div>
         {% endfor %}
         
-        <h2>11. Conclusões e Análise</h2>
+        <h2>12. Conclusões e Análise</h2>
         
-        <h3>11.1 Situação Geral</h3>
+        <h3>12.1 Situação Geral</h3>
         <div class="section-box">{{ laudo.situacao_geral or "(não preenchido)" }}</div>
         
-        <h3>11.2 Pontos Fortes</h3>
+        <h3>12.2 Pontos Fortes</h3>
         <div class="section-box">{{ laudo.pontos_fortes or "(não preenchido)" }}</div>
         
-        <h3>11.3 Pontos Fracos / Riscos</h3>
+        <h3>12.3 Pontos Fracos / Riscos</h3>
         <div class="section-box">{{ laudo.pontos_fracos or "(não preenchido)" }}</div>
         
-        <h3>11.4 Recomendações</h3>
+        <h3>12.4 Recomendações</h3>
         <div class="section-box">{{ laudo.recomendacoes or "(não preenchido)" }}</div>
         
-        <h3>11.5 Observações Adicionais</h3>
+        <h3>12.5 Observações Adicionais</h3>
         <div class="section-box">{{ laudo.observacoes or "(não preenchido)" }}</div>
         
         <div style="margin-top:36px;">
@@ -3747,6 +3850,7 @@ def criar_laudo_html(state, indicadores):
         indicadores=indicadores,
         fmtR_ll=fmtR(indicadores["ll_absorcao"]),
         data_atual=datetime.now().strftime("%d/%m/%Y %H:%M"),
+        sim=sim_fmt,
     )
     
     return html
