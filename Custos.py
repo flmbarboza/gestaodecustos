@@ -4167,8 +4167,6 @@ def main():
             st.rerun()
         
         st.caption("SysCost v1.0")
-        st.write(plotly.__version__)
-        st.write(f"Kaleido versão: {kaleido.__version__}")
 
     page = st.session_state.get("page", "plano")
     
