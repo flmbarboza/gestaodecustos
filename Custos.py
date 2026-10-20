@@ -576,7 +576,7 @@ def calcular_indicadores(state):
     )
 
     # Fixos totais (com financeiras) — usados no PEC e no PEE
-    custos_fixos_total = custos_fixos + despesas_financeiras
+    custos_fixos_total = custos_fixos + despesas_financeiras + perdas
 
     # Fixos desembolsáveis (para o PE Financeiro) — exclui apenas depreciação
     custos_fixos_desembolsaveis = custos_fixos_total - depreciacao
