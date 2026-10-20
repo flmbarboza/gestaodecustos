@@ -249,7 +249,7 @@ st.markdown("""
 
 # Configura locale pt-BR (separador de milhar = ponto, decimal = vírgula)
 pio.templates.default = "plotly_dark"
-pio.kaleido.scope.default_format = "png"  # opcional
+pio.defaults.default_format = "png"
 # ─── UTILITÁRIOS ────────────────────────────────────────────────────────────────
 
 def fmt(v, d=2):
