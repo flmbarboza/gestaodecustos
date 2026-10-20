@@ -2248,19 +2248,25 @@ def modulo_dre():
             ("= Lucro Líquido", indicadores["ll_absorcao"], "#3fb950" if indicadores["ll_absorcao"] >= 0 else "#f85149", True),
         ]
         
-        for label, value, color, bold in dre_abs:
-            prefix = ""
-            if value < 0:
-                prefix = "−"
-                value = abs(value)
+        for label, value, color, bold in dre_var:
+            # Se já é string (ex: percentual pré-formatado), usa como está
+            if isinstance(value, str):
+                display = value
+            else:
+                # É número: formata como moeda, controlando o sinal
+                if value < 0:
+                    display = f"−{fmtR(abs(value))}"
+                else:
+                    display = fmtR(value)
+            
             st.markdown(
                 f"""
-                <div style="display: flex; justify-content: space-between; padding: 4px 0; 
-                            font-family: 'IBM Plex Mono', monospace; 
+                <div style="display: flex; justify-content: space-between; padding: 4px 0;
+                            font-family: 'IBM Plex Mono', monospace;
                             font-weight: {'700' if bold else '400'};
                             color: {color};">
                     <span>{label}</span>
-                    <span>{prefix}{fmtR(value)}</span>
+                    <span>{display}</span>
                 </div>
                 """,
                 unsafe_allow_html=True
