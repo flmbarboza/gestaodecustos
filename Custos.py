@@ -16,7 +16,6 @@ from jinja2 import Environment, Template
 import json
 import os
 import plotly.io as pio
-import plotly,kaleido
         
 # ─── CONFIGURAÇÃO DA PÁGINA ──────────────────────────────────────────────────────
 st.set_page_config(
@@ -464,7 +463,7 @@ def plotly_to_base64(fig, width=900, height=450):
         return None
 
 def _gerar_graficos_laudo(state, indicadores):
-    """Gera todos os gráficos do app como imagens base64 para o laudo."""
+    """Gera todos os gráficos do app como HTML interativo para o laudo."""
     graficos = {}
     
     # ─── Gráfico 1: Composição de Custos (pizza) ──────────────
@@ -488,8 +487,11 @@ def _gerar_graficos_laudo(state, indicadores):
             plot_bgcolor="#ffffff", paper_bgcolor="#ffffff",
             font_color="#1a1a1a", height=400,
         )
-        graficos["pizza_custos"] = plotly_to_base64(fig)
+        graficos["pizza_custos"] = fig.to_html(
+            full_html=False, include_plotlyjs="cdn", config={"displayModeBar": False}
+        )
     except Exception as e:
+        print(f"[laudo] pizza_custos: {e}")
         graficos["pizza_custos"] = None
     
     # ─── Gráfico 2: Receita por Produto (barras) ──────────────
@@ -516,10 +518,13 @@ def _gerar_graficos_laudo(state, indicadores):
                 font_color="#1a1a1a", height=400,
                 xaxis_tickangle=-45,
             )
-            graficos["barras_receita"] = plotly_to_base64(fig)
+            graficos["barras_receita"] = fig.to_html(
+                full_html=False, include_plotlyjs="cdn", config={"displayModeBar": False}
+            )
         else:
             graficos["barras_receita"] = None
-    except Exception:
+    except Exception as e:
+        print(f"[laudo] barras_receita: {e}")
         graficos["barras_receita"] = None
     
     # ─── Gráfico 3: CVL — Ponto de Equilíbrio (linhas) ────────
@@ -560,10 +565,13 @@ def _gerar_graficos_laudo(state, indicadores):
                 legend=dict(orientation="h", yanchor="bottom", y=1.02,
                             xanchor="right", x=1),
             )
-            graficos["cvl"] = plotly_to_base64(fig, width=900, height=450)
+            graficos["cvl"] = fig.to_html(
+                full_html=False, include_plotlyjs="cdn", config={"displayModeBar": False}
+            )
         else:
             graficos["cvl"] = None
-    except Exception:
+    except Exception as e:
+        print(f"[laudo] cvl: {e}")
         graficos["cvl"] = None
     
     # ─── Gráfico 4: Evolução dos Indicadores (se multi-período) ─
@@ -598,13 +606,17 @@ def _gerar_graficos_laudo(state, indicadores):
                 legend=dict(orientation="h", yanchor="bottom", y=1.02,
                             xanchor="right", x=1),
             )
-            graficos["evolucao"] = plotly_to_base64(fig)
+            graficos["evolucao"] = fig.to_html(
+                full_html=False, include_plotlyjs="cdn", config={"displayModeBar": False}
+            )
         else:
             graficos["evolucao"] = None
-    except Exception:
+    except Exception as e:
+        print(f"[laudo] evolucao: {e}")
         graficos["evolucao"] = None
     
     return graficos
+        
 # ─── FUNÇÕES DE CÁLCULO ──────────────────────────────────────────────────────────
 def calcular_indicadores(state):
     """
@@ -3444,7 +3456,15 @@ def criar_laudo_html(state, indicadores):
             .kpi-label { font-size: 9px; text-transform: uppercase; letter-spacing: .05em; color: #888; margin-bottom: 2px; }
             .kpi-value { font-size: 14px; font-weight: 700; }
             .grafico { text-align: center; margin: 12px 0; }
-            .grafico img { max-width: 100%; height: auto; border: 1px solid #dde3ec; border-radius: 8px; padding: 4px; background: #fff; }
+            .grafico img,
+            .grafico .plotly-graph-div {
+                  max-width: 100%;
+                  height: auto;
+                  border: 1px solid #dde3ec;
+                  border-radius: 8px;
+                  padding: 4px;
+                  background: #fff;
+                }
             .diagnostico { padding: 8px 12px; border-radius: 6px; margin-bottom: 6px; font-size: 11px; }
             .diag-ok { background: #eaf7ee; border: 1px solid #b6e0c2; color: #1e5b2c; }
             .diag-bad { background: #fdf2f2; border: 1px solid #f5c2c2; color: #b52a24; }
