@@ -612,6 +612,11 @@ def calcular_indicadores(state):
     resultado_antes_ir_var = lo_variavel - despesas_financeiras - perdas
     ircsll_var = resultado_antes_ir_var * 0.34 if resultado_antes_ir_var > 0 else 0
     ll_variavel = resultado_antes_ir_var - ircsll_var    
+
+    # ─── ALAVANCAGEM OPERACIONAL (GAO) ────────────────────────
+    # GAO = Margem de Contribuição ÷ EBIT (Resultado Operacional)
+    # Mede o quanto o EBIT varia para cada 1% de variação na receita.
+    gao = safe_div(mc, lo_variavel) if lo_variavel != 0 else 0
     
     return {
         "rb": rb,
@@ -639,6 +644,7 @@ def calcular_indicadores(state):
         "ms_abs": ms_abs,
         "ms_perc": ms_perc,
         "ms_qtd": ms_qtd,
+        "gao": gao,
         "qtd_total": qtd_total,
         "cpv_absorcao": cpv_absorcao,
         "lb_absorcao": lb_absorcao,
@@ -2385,42 +2391,6 @@ def modulo_cvl():
     if indicadores["depreciacao"] > 0:
         render_alert(f"💡 Identificamos <strong>{fmtR(indicadores['depreciacao'])}</strong> em depreciação nos custos fixos — esse valor é excluído no cálculo do PE Financeiro.", type="info")
     
-    # Simulação
-    with st.expander("🎯 Simulação - 'O que acontece se...'", expanded=True):
-        col1, col2 = st.columns(2)
-        with col1:
-            st.write("**Variação de Volume**")
-            volume_var = st.slider(
-                "Variação % no volume de vendas",
-                min_value=-50,
-                max_value=100,
-                value=0,
-                step=5,
-                key="volume_sim"
-            )
-        with col2:
-            st.write("**Variação de Preço**")
-            preco_var = st.slider(
-                "Variação % no preço de venda",
-                min_value=-30,
-                max_value=50,
-                value=0,
-                step=5,
-                key="preco_sim"
-            )
-        
-        if st.button("Aplicar Simulação"):
-            for v in st.session_state.vendas:
-                v["qtd"] = max(0, v["qtd"] * (1 + volume_var / 100))
-                v["preco_unit"] = max(0, v["preco_unit"] * (1 + preco_var / 100))
-            st.rerun()
-        
-        if st.button("Restaurar Dados Originais"):
-            estado_inicial = get_initial_state()
-            for key in ["vendas"]:
-                st.session_state[key] = estado_inicial[key]
-            st.rerun()
-    
     # Pontos de Equilíbrio
     st.subheader("📊 Pontos de Equilíbrio")
     
@@ -2456,23 +2426,7 @@ def modulo_cvl():
         </div>
         """, unsafe_allow_html=True)
     
-    # Margem de Segurança
-    st.subheader("🛡️ Margem de Segurança")
-    
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        render_kpi("Margem de Segurança R$", fmtR(indicadores["ms_abs"]),
-                   sub="Acima do PE" if indicadores["ms_abs"] >= 0 else "ABAIXO do PE — prejuízo!",
-                   color="#3fb950" if indicadores["ms_abs"] >= 0 else "#f85149")
-    with col2:
-        render_kpi("Margem de Segurança %", fmtP(indicadores["ms_perc"]),
-                   color="#3fb950" if indicadores["ms_perc"] >= 0 else "#f85149")
-    with col3:
-        render_kpi("Margem de Segurança Qtd", f"{fmt(indicadores['ms_qtd'], 0)} un",
-                   sub="Unidades acima do PE",
-                   color="#39d353" if indicadores["ms_perc"] >= 0 else "#f85149")
-    
-        # Gráfico do PE
+    # Gráfico do PE
     st.subheader("📈 Visualização do Ponto de Equilíbrio")
     
     if indicadores["rl"] > 0 and indicadores["pec"] > 0:
@@ -2536,6 +2490,119 @@ def modulo_cvl():
     else:
         st.info("Informe uma receita e custos fixos válidos para visualizar o gráfico.")
 
+    # Margem de Segurança
+    st.subheader("🛡️ Margem de Segurança")
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        render_kpi("Margem de Segurança R$", fmtR(indicadores["ms_abs"]),
+                   sub="Acima do PE" if indicadores["ms_abs"] >= 0 else "ABAIXO do PE — prejuízo!",
+                   color="#3fb950" if indicadores["ms_abs"] >= 0 else "#f85149")
+    with col2:
+        render_kpi("Margem de Segurança %", fmtP(indicadores["ms_perc"]),
+                   color="#3fb950" if indicadores["ms_perc"] >= 0 else "#f85149")
+    with col3:
+        render_kpi("Margem de Segurança Qtd", f"{fmt(indicadores['ms_qtd'], 0)} un",
+                   sub="Unidades acima do PE",
+                   color="#39d353" if indicadores["ms_perc"] >= 0 else "#f85149")
+
+    # ALAVANCAGEM OPERACIONAL (GAO)
+    st.subheader("⚙️ Alavancagem Operacional (GAO)")
+    
+    gao = indicadores["gao"]
+    mc_val = indicadores["mc"]
+    ebit_val = indicadores["lo_variavel"]
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        render_kpi(
+            "GAO",
+            f"{fmt(gao, 2)}×",
+            sub="MC ÷ EBIT",
+            color="#58a6ff" if gao > 0 else "#f85149",
+        )
+    with col2:
+        render_kpi(
+            "Margem de Contribuição",
+            fmtR(mc_val),
+            sub="Numerador do GAO",
+            color="#39d353",
+        )
+    with col3:
+        render_kpi(
+            "Resultado Operacional (EBIT)",
+            fmtR(ebit_val),
+            sub="Denominador do GAO",
+            color="#3fb950" if ebit_val >= 0 else "#f85149",
+        )
+    
+    # Explicação didática
+    if gao > 0:
+        st.markdown(f"""
+        <div style="background:#1f468020;border:1px solid #1f4680;border-radius:8px;
+                    padding:12px 16px;margin-top:8px;font-size:13px;color:#cae8ff;">
+            📖 <strong>Como interpretar:</strong> cada <strong>1%</strong> de variação
+            na Receita Líquida provoca <strong>{fmt(gao, 2)}%</strong> de variação no
+            Resultado Operacional (EBIT).
+            {f'Um aumento de 10% na receita elevaria o EBIT em aproximadamente <strong>{fmt(gao * 10, 1)}%</strong>.' if gao > 1 else ''}
+            {f'Uma queda de 10% na receita reduziria o EBIT em aproximadamente <strong>{fmt(gao * 10, 1)}%</strong>.' if gao > 1 else ''}
+        </div>
+        """, unsafe_allow_html=True)
+    elif ebit_val == 0:
+        st.markdown("""
+        <div style="background:#d2992220;border:1px solid #d2992260;border-radius:8px;
+                    padding:12px 16px;margin-top:8px;font-size:13px;color:#f0e68c;">
+            ⚠️ <strong>EBIT = 0:</strong> a empresa está exatamente no Ponto de Equilíbrio.
+            O GAO não pode ser calculado (divisão por zero). Qualquer variação na receita
+            gera variação proporcional no resultado.
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <div style="background:#6e1c1a20;border:1px solid #6e1c1a;border-radius:8px;
+                    padding:12px 16px;margin-top:8px;font-size:13px;color:#ffa198;">
+            ⚠️ <strong>EBIT negativo:</strong> a empresa está abaixo do Ponto de Equilíbrio.
+            O GAO perde sentido interpretativo (o resultado é negativo). Volte ao lucro
+            para analisar a alavancagem.
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Simulação
+    with st.expander("🎯 Simulação - 'O que acontece se...'", expanded=False):
+        col1, col2 = st.columns(2)
+        with col1:
+            st.write("**Variação de Volume**")
+            volume_var = st.slider(
+                "Variação % no volume de vendas",
+                min_value=-50,
+                max_value=100,
+                value=0,
+                step=5,
+                key="volume_sim"
+            )
+        with col2:
+            st.write("**Variação de Preço**")
+            preco_var = st.slider(
+                "Variação % no preço de venda",
+                min_value=-30,
+                max_value=50,
+                value=0,
+                step=5,
+                key="preco_sim"
+            )
+        
+        if st.button("Aplicar Simulação"):
+            for v in st.session_state.vendas:
+                v["qtd"] = max(0, v["qtd"] * (1 + volume_var / 100))
+                v["preco_unit"] = max(0, v["preco_unit"] * (1 + preco_var / 100))
+            st.rerun()
+        
+        if st.button("Restaurar Dados Originais"):
+            estado_inicial = get_initial_state()
+            for key in ["vendas"]:
+                st.session_state[key] = estado_inicial[key]
+            st.rerun()
+    
 def modulo_precificacao():
     """Módulo: Precificação"""
     st.header("🏷️ Precificação")
