@@ -2567,41 +2567,172 @@ def modulo_cvl():
         </div>
         """, unsafe_allow_html=True)
 
-    # Simulação
-    with st.expander("🎯 Simulação - 'O que acontece se...'", expanded=False):
-        col1, col2 = st.columns(2)
+    # ═══════════════════════════════════════════════════════════════
+    # SIMULAÇÃO — variação percentual na Receita Líquida
+    # ═══════════════════════════════════════════════════════════════
+    with st.expander("🎯 Simulação — 'O que acontece se a receita variar?'", expanded=False):
+        st.caption(
+            "A simulação mantém a MC% constante (mesmo mix e mesma estrutura de custos). "
+            "Ela **não altera** os dados originais — apenas projeta o resultado."
+        )
+        
+        variacao_pct = st.slider(
+            "Variação na Receita Líquida (%)",
+            min_value=-50,
+            max_value=100,
+            value=0,
+            step=5,
+            key="sim_variacao_rl",
+            help="Positivo = aumento; negativo = queda. Ex: -10 significa queda de 10%.",
+        )
+        
+        # ─── Valores atuais (base) ─────────────────────────────
+        rl_base = indicadores["rl"]
+        mc_perc_dec = indicadores["mc_perc"] / 100
+        fixos_totais = indicadores["custos_fixos_total"]
+        desp_fin = indicadores["despesas_financeiras"]
+        perdas_val = indicadores["perdas"]
+        
+        # ─── Valores simulados ─────────────────────────────────
+        rl_sim = rl_base * (1 + variacao_pct / 100)
+        mc_sim = rl_sim * mc_perc_dec
+        ebit_sim = mc_sim - fixos_totais
+        lair_sim = ebit_sim - desp_fin - perdas_val
+        ir_sim = lair_sim * 0.34 if lair_sim > 0 else 0
+        ll_sim = lair_sim - ir_sim
+        
+        # ─── KPIs de variação ──────────────────────────────────
+        delta_ebit_pct = (
+            (ebit_sim - indicadores["lo_variavel"]) / abs(indicadores["lo_variavel"]) * 100
+            if indicadores["lo_variavel"] != 0 else 0
+        )
+        delta_ll_pct = (
+            (ll_sim - indicadores["ll_variavel"]) / abs(indicadores["ll_variavel"]) * 100
+            if indicadores["ll_variavel"] != 0 else 0
+        )
+        
+        col1, col2, col3, col4 = st.columns(4)
         with col1:
-            st.write("**Variação de Volume**")
-            volume_var = st.slider(
-                "Variação % no volume de vendas",
-                min_value=-50,
-                max_value=100,
-                value=0,
-                step=5,
-                key="volume_sim"
+            render_kpi(
+                "Receita Líquida",
+                fmtR(rl_sim),
+                sub=f"{'+' if variacao_pct >= 0 else ''}{fmt(variacao_pct, 1)}% vs atual",
+                color="#58a6ff",
             )
         with col2:
-            st.write("**Variação de Preço**")
-            preco_var = st.slider(
-                "Variação % no preço de venda",
-                min_value=-30,
-                max_value=50,
-                value=0,
-                step=5,
-                key="preco_sim"
+            render_kpi(
+                "Margem de Contribuição",
+                fmtR(mc_sim),
+                sub=f"MC% mantida em {fmtP(indicadores['mc_perc'])}",
+                color="#39d353",
+            )
+        with col3:
+            render_kpi(
+                "EBIT",
+                fmtR(ebit_sim),
+                sub=f"{'+' if delta_ebit_pct >= 0 else ''}{fmt(delta_ebit_pct, 1)}%",
+                color="#3fb950" if ebit_sim >= 0 else "#f85149",
+            )
+        with col4:
+            render_kpi(
+                "Lucro Líquido",
+                fmtR(ll_sim),
+                sub=f"{'+' if delta_ll_pct >= 0 else ''}{fmt(delta_ll_pct, 1)}%",
+                color="#3fb950" if ll_sim >= 0 else "#f85149",
             )
         
-        if st.button("Aplicar Simulação"):
-            for v in st.session_state.vendas:
-                v["qtd"] = max(0, v["qtd"] * (1 + volume_var / 100))
-                v["preco_unit"] = max(0, v["preco_unit"] * (1 + preco_var / 100))
-            st.rerun()
+        # ─── Comparativo lado a lado ───────────────────────────
+        st.markdown("#### 📊 Comparativo: Atual vs Simulado")
         
-        if st.button("Restaurar Dados Originais"):
-            estado_inicial = get_initial_state()
-            for key in ["vendas"]:
-                st.session_state[key] = estado_inicial[key]
-            st.rerun()
+        comparativo_sim = pd.DataFrame([
+            {
+                "Linha": "Receita Líquida",
+                "Atual": fmtR(rl_base),
+                "Simulado": fmtR(rl_sim),
+                "Δ R$": fmtR(rl_sim - rl_base),
+                "Δ %": f"{'+' if (rl_sim - rl_base) >= 0 else ''}{fmt(safe_div(rl_sim - rl_base, rl_base) * 100, 1)}%",
+            },
+            {
+                "Linha": "(−) Custos/Desp. Variáveis",
+                "Atual": fmtR(rl_base - indicadores["mc"]),
+                "Simulado": fmtR(rl_sim - mc_sim),
+                "Δ R$": fmtR((rl_sim - mc_sim) - (rl_base - indicadores["mc"])),
+                "Δ %": f"{'+' if ((rl_sim - mc_sim) - (rl_base - indicadores['mc'])) >= 0 else ''}{fmt(safe_div((rl_sim - mc_sim) - (rl_base - indicadores['mc']), (rl_base - indicadores['mc'] or 1)) * 100, 1)}%",
+            },
+            {
+                "Linha": "= Margem de Contribuição",
+                "Atual": fmtR(indicadores["mc"]),
+                "Simulado": fmtR(mc_sim),
+                "Δ R$": fmtR(mc_sim - indicadores["mc"]),
+                "Δ %": f"{'+' if (mc_sim - indicadores['mc']) >= 0 else ''}{fmt(safe_div(mc_sim - indicadores['mc'], indicadores['mc']) * 100, 1) if indicadores['mc'] else '0,0'}%",
+            },
+            {
+                "Linha": "(−) Custos/Desp. Fixos Totais",
+                "Atual": fmtR(fixos_totais),
+                "Simulado": fmtR(fixos_totais),
+                "Δ R$": fmtR(0),
+                "Δ %": "0,0%",
+            },
+            {
+                "Linha": "= EBIT",
+                "Atual": fmtR(indicadores["lo_variavel"]),
+                "Simulado": fmtR(ebit_sim),
+                "Δ R$": fmtR(ebit_sim - indicadores["lo_variavel"]),
+                "Δ %": f"{'+' if delta_ebit_pct >= 0 else ''}{fmt(delta_ebit_pct, 1)}%",
+            },
+            {
+                "Linha": "(−) Desp. Financeiras",
+                "Atual": fmtR(desp_fin),
+                "Simulado": fmtR(desp_fin),
+                "Δ R$": fmtR(0),
+                "Δ %": "0,0%",
+            },
+            {
+                "Linha": "(−) Outras Despesas",
+                "Atual": fmtR(perdas_val),
+                "Simulado": fmtR(perdas_val),
+                "Δ R$": fmtR(0),
+                "Δ %": "0,0%",
+            },
+            {
+                "Linha": "= LAIR",
+                "Atual": fmtR(indicadores["resultado_antes_ir_var"]),
+                "Simulado": fmtR(lair_sim),
+                "Δ R$": fmtR(lair_sim - indicadores["resultado_antes_ir_var"]),
+                "Δ %": f"{'+' if (lair_sim - indicadores['resultado_antes_ir_var']) >= 0 else ''}{fmt(safe_div(lair_sim - indicadores['resultado_antes_ir_var'], abs(indicadores['resultado_antes_ir_var'])) * 100, 1) if indicadores['resultado_antes_ir_var'] else '0,0'}%",
+            },
+            {
+                "Linha": "(−) IR/CSLL (34%)",
+                "Atual": fmtR(indicadores["ircsll_var"]),
+                "Simulado": fmtR(ir_sim),
+                "Δ R$": fmtR(ir_sim - indicadores["ircsll_var"]),
+                "Δ %": f"{'+' if (ir_sim - indicadores['ircsll_var']) >= 0 else ''}{fmt(safe_div(ir_sim - indicadores['ircsll_var'], abs(indicadores['ircsll_var'])) * 100, 1) if indicadores['ircsll_var'] else '0,0'}%",
+            },
+            {
+                "Linha": "= Lucro Líquido",
+                "Atual": fmtR(indicadores["ll_variavel"]),
+                "Simulado": fmtR(ll_sim),
+                "Δ R$": fmtR(ll_sim - indicadores["ll_variavel"]),
+                "Δ %": f"{'+' if delta_ll_pct >= 0 else ''}{fmt(delta_ll_pct, 1)}%",
+            },
+        ])
+        
+        st.dataframe(comparativo_sim, use_container_width=True, hide_index=True)
+        
+        # ─── Interpretação pela alavancagem ────────────────────
+        gao = indicadores.get("gao", 0)
+        if gao > 0:
+            st.markdown(f"""
+            <div style="background:#1f468020;border:1px solid #1f4680;border-radius:8px;
+                        padding:12px 16px;margin-top:8px;font-size:13px;color:#cae8ff;">
+                📖 <strong>Verificação pela alavancagem operacional (GAO = {fmt(gao, 2)}×):</strong>
+                uma variação de <strong>{fmt(variacao_pct, 1)}%</strong> na receita
+                deveria produzir uma variação de aproximadamente
+                <strong>{fmt(variacao_pct * gao, 1)}%</strong> no EBIT.
+                O simulador encontrou <strong>{fmt(delta_ebit_pct, 1)}%</strong> —
+                {f'✅ coerente com o GAO.' if abs(delta_ebit_pct - variacao_pct * gao) < 1 else '⚠️ verifique a diferença (pode ser efeito de arredondamento ou do mix).'}
+            </div>
+            """, unsafe_allow_html=True)
     
 def modulo_precificacao():
     """Módulo: Precificação"""
