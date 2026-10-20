@@ -2801,7 +2801,7 @@ def modulo_cvl():
             render_kpi(
                 "Receita Líquida",
                 fmtR(rl_sim),
-                sub=f"{'+' if variacao_pct  0 else ''}{fmt(variacao_pct, 1)}% vs atual",
+                sub=f"{'+' if variacao_pct >= 0 else ''}{fmt(variacao_pct, 1)}% vs atual",
                 color="#58a6ff",
             )
         with col2:
@@ -2815,7 +2815,7 @@ def modulo_cvl():
             render_kpi(
                 "EBIT",
                 fmtR(ebit_sim),
-                sub=f"{'+' if delta_ebit_pct  0 else ''}{fmt(delta_ebit_pct, 1)}%",
+                sub=f"{'+' if delta_ebit_pct >= 0 else ''}{fmt(delta_ebit_pct, 1)}%",
                 color="#3fb950" if ebit_sim >= 0 else "#f85149",
             )
         with col4:
