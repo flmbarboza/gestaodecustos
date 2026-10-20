@@ -579,7 +579,7 @@ def calcular_indicadores(state):
     custos_fixos_total = custos_fixos + despesas_financeiras + perdas
 
     # Fixos desembolsáveis (para o PE Financeiro) — exclui apenas depreciação
-    custos_fixos_desembolsaveis = custos_fixos_total - depreciacao - amortizacao
+    custos_fixos_desembolsaveis = custos_fixos_total - depreciacao
 
     # ─── PONTOS DE EQUILÍBRIO ─────────────────────────────────────────────────
     lucro_desejado = custos_fixos_total * 0.3  # 30% como meta padrão
@@ -627,7 +627,6 @@ def calcular_indicadores(state):
         "custos_semivariaveis": custos_semivariaveis,
         "custos_fixos_total": custos_fixos_total,
         "depreciacao": depreciacao,
-        "amortizacao": amortizacao,
         "custos_fixos_desembolsaveis": custos_fixos_desembolsaveis,
         "lucro_desejado": lucro_desejado,
         "pec": pec,
